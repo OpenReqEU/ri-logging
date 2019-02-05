@@ -93,21 +93,21 @@ For each property in the base_confg.json the -e flag in Docker:
 
 1. Run from the project root directory
     ```console
-    foo@bar:~$ pip install requirements.txt
+    foo@bar:~$ python run run.py
     ```
     
 #### Docker
 
-1. Run from the project root directory. The `docker run` command requires an -e flag for each property form the `config_base.json`
+1. Run from the project root directory. The `docker run` command requires an `-e` flag for each property form the `config_base.json`. 
     ```console
     foo@bar:~$ docker run -d -p 9798:9798-v /directory_of_nginx_logs:/back_end_log -e DB_HOST="0.0.0.0" --name ri-logging
     ```
 
 ### How to Use This Microservice
 
-The frontend logging is done by the logging script. To use the loggign script include following line in the head of your website: 
+The frontend logging is done by the logging script. To use the logging script include following line in the head of your website: 
 ```html
-<script src="https://<yourhost>/frontend/script"></script>
+<script src="https://yourhost/frontend/script"></script>
 ```
 
 The access to the frontend and backend logs is documented in the included Swagger file.
@@ -131,6 +131,10 @@ creating a bloated file. Please only use this command from a virtual environment
 To run the tests:
 1) Navigate to the root folder
 2) Run `python tests/test_all.py`
+
+## Sources
+
+None
 
 ## How to contribute
 
