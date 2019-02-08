@@ -60,7 +60,7 @@ def init_db_connection():
     return None
 
 
-@api.route('/<str:collection_name>/remove', methods=['DELETE'])
+@api.route('/<collection_name>/remove', methods=['DELETE'])
 @auth.auth_single
 def delete_documents(collection_name):
     """
