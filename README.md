@@ -110,7 +110,7 @@ The frontend logging is done by the logging script. To use the logging script in
 <script src="https://yourhost/frontend/script"></script>
 ```
 
-The access to the frontend and backend logs is documented in the included Swagger file.
+The access to the frontend and backend logs is documented in the included Swagger file or the API documentation ([web page] (https://api.openreq.eu/#/services/ri-logging)).
 
 ### Notes for Developers
 
