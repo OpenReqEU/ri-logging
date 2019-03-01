@@ -179,13 +179,25 @@ function simplifyObject(object) {
 }
 
 /**
+ * Enhance the event with metadata like timestamps and the current url.
+ * @param event The event object
+ * @returns {*}
+ */
+function addMetadata(event) {
+    event['url'] = window.location.href;
+    event['unixTime'] = Date.now();
+    return event;
+}
+
+/**
  * Log an Event.
  * @param {Event} event The Event to log
  */
 function log(event) {
     console.log(event);
     let simplifiedEvent = simplifyObject(event);
-    let eventJson = JSON.stringify(simplifiedEvent);
+    let enhancedEvent = addMetadata(simplifiedEvent);
+    let eventJson = JSON.stringify(enhancedEvent);
     send_log(eventJson);
 }
 
