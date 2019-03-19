@@ -7,7 +7,7 @@
  *
  */
 "use strict";
-const endpoint_url = "";
+const endpoint_url = "https://api.openreq.eu/ri-logging/frontend/log";
 
 /***** SESSION MANAGEMENT *****/
 
@@ -173,7 +173,7 @@ function simplifyObject(object) {
     //     }
     //     objectJson[propertyName] = elementPath;
     // }
-// }
+    // }
 
     return objectJson;
 }
@@ -208,7 +208,7 @@ function log(event) {
 function send_log(log) {
     let url = endpoint_url;
     let sessionId = getCookie("sessionId");
-    let header = {"sessionId": sessionId, "Content-Type": "application/json"};
+    let header = { "sessionId": sessionId, "Content-Type": "application/json" };
     post(url, log, header);
 }
 
@@ -250,21 +250,57 @@ let logHandler = function (event) {
  * Load event listeners on load
  */
 // let eventsToLog = ["click", "input", "mouseover"];
-let eventsToLog = ["mousedown", "mouseup", "input", "mouseover"];
+// let eventsToLog = ["mousedown", "mouseup", "input", "mouseover"];
+// let eventsToLog = ["input", "mouseover"];
 // let eventsToLog = ["click", "mousemove"];
-document.addEventListener("DOMContentLoaded", function () {
-    let target = document.querySelector('body');
-    let observer = new MutationObserver(function (mutations) {
-        eventsToLog.forEach(eventToLog => {
-            document.addEventListener(eventToLog, logHandler);
-        });
-    });
-    let config = {attributes: true, childList: true, characterData: true}
-    observer.observe(target, config);
 
-    refreshSessionId();
+// document.addEventListener("DOMContentLoaded", function () {
+//     let target = document.querySelector('body');
+//     let observer = new MutationObserver(function (mutations) {
+//         eventsToLog.forEach(eventToLog => {
+//             document.addEventListener(eventToLog, logHandler);
+//         });
+//     });
+//     let config = { attributes: true, childList: true, characterData: true }
+//     observer.observe(target, config);
+
+//     refreshSessionId();
+// });
+
+document.addEventListener("DOMContentLoaded", function (e) {
+    // var requirementTitles = document.getElementsByClassName('or-requirement-title');
+    var requirementTitles = document.querySelectorAll('.or-requirement-title');
+    console.log(requirementTitles);
+    var l = requirementTitles.length;
+    for (var i = 0; i < l; i++) {
+        requirementTitles[i].addEventListener('focus', (event) => {
+            // console.log("FOCUSED.");
+            log(event);
+        }, true);
+
+        requirementTitles[i].addEventListener('blur', (event) => {
+            // console.log("UNFOCUSED.");
+            log(event);
+        }, true);
+    }
+
+
+    var requirementTexts = document.querySelectorAll('.note-editable');
+    console.log(requirementTexts);
+    for (var i = 0; i < requirementTexts.length; i++) {
+        requirementTexts[i].addEventListener('focus', (event) => {
+            // console.log("FOCUSED.");
+            log(event);
+        }, true);
+
+        requirementTexts[i].addEventListener('blur', (event) => {
+            // console.log("UNFOCUSED.");
+            log(event);
+        }, true);
+    }
+
+
 });
-
 
 /***** DEVELOPER STUFF *****/
 
