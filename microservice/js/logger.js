@@ -195,7 +195,6 @@ function addMetadata(event) {
  */
 function log(event) {
     console.log(event);
-    // let requirementSpecificInformation = getRequirementSpecificInformation(event);
     let simplifiedEvent = simplifyObject(event);
     let enhancedEvent = addMetadata(simplifiedEvent);
     enhancedEvent['requirementId'] = getRequirementId(event);
@@ -218,31 +217,8 @@ function getRequirementId(event) {
     else if (event.target.className.startsWith("or-requirement-status-field")) {
         requirementId = event.target.parentNode.parentNode.parentNode.getAttribute("data-id");
     }
-    console.log(requirementId);
     return requirementId;
 }
-
-// function getRequirementSpecificInformation(event) {
-//     let typeSpecificData = {};
-//     let requirementId = "";
-//     if (event.target.className.startsWith("or-requirement-title")) {
-//         requirementId = event.target.parentNode.parentNode.getAttribute("data-id");
-//         typeSpecificData['requirementId'] = requirementId;
-//         typeSpecificData['value'] = event.target.innerText;
-//     }
-//     else if (event.target.className.startsWith("note-editable")) {
-//         requirementId = event.target.parentNode.parentNode.parentNode.parentNode.getAttribute("data-id");
-//         typeSpecificData['requirementId'] = requirementId;
-//         typeSpecificData['value'] = event.target.innerText;
-//     }
-//     else if (event.target.className.startsWith("or-requirement-status-field")) {
-//         requirementId = event.target.parentNode.parentNode.parentNode.getAttribute("data-id");
-//         typeSpecificData['requirementId'] = requirementId;
-//         typeSpecificData['value'] = event.target.value;
-//     }
-//     console.log(typeSpecificData);
-//     return typeSpecificData;
-// }
 
 /**
  * Send log with al necessary data.
