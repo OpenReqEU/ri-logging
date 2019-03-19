@@ -195,11 +195,54 @@ function addMetadata(event) {
  */
 function log(event) {
     console.log(event);
+    // let requirementSpecificInformation = getRequirementSpecificInformation(event);
     let simplifiedEvent = simplifyObject(event);
     let enhancedEvent = addMetadata(simplifiedEvent);
+    enhancedEvent['requirementId'] = getRequirementId(event);
     let eventJson = JSON.stringify(enhancedEvent);
     send_log(eventJson);
 }
+
+/**
+ * Get the requirement id from the parent elemnt of the event triggering element.
+ * @param {Event} event
+ */
+function getRequirementId(event) {
+    let requirementId = "";
+    if (event.target.className.startsWith("or-requirement-title")) {
+        requirementId = event.target.parentNode.parentNode.getAttribute("data-id");
+    }
+    else if (event.target.className.startsWith("note-editable")) {
+        requirementId = event.target.parentNode.parentNode.parentNode.parentNode.getAttribute("data-id");
+    }
+    else if (event.target.className.startsWith("or-requirement-status-field")) {
+        requirementId = event.target.parentNode.parentNode.parentNode.getAttribute("data-id");
+    }
+    console.log(requirementId);
+    return requirementId;
+}
+
+// function getRequirementSpecificInformation(event) {
+//     let typeSpecificData = {};
+//     let requirementId = "";
+//     if (event.target.className.startsWith("or-requirement-title")) {
+//         requirementId = event.target.parentNode.parentNode.getAttribute("data-id");
+//         typeSpecificData['requirementId'] = requirementId;
+//         typeSpecificData['value'] = event.target.innerText;
+//     }
+//     else if (event.target.className.startsWith("note-editable")) {
+//         requirementId = event.target.parentNode.parentNode.parentNode.parentNode.getAttribute("data-id");
+//         typeSpecificData['requirementId'] = requirementId;
+//         typeSpecificData['value'] = event.target.innerText;
+//     }
+//     else if (event.target.className.startsWith("or-requirement-status-field")) {
+//         requirementId = event.target.parentNode.parentNode.parentNode.getAttribute("data-id");
+//         typeSpecificData['requirementId'] = requirementId;
+//         typeSpecificData['value'] = event.target.value;
+//     }
+//     console.log(typeSpecificData);
+//     return typeSpecificData;
+// }
 
 /**
  * Send log with al necessary data.
@@ -284,7 +327,6 @@ document.addEventListener("DOMContentLoaded", function (e) {
         }, true);
     }
 
-
     var requirementTexts = document.querySelectorAll('.note-editable');
     console.log(requirementTexts);
     for (var i = 0; i < requirementTexts.length; i++) {
@@ -299,7 +341,16 @@ document.addEventListener("DOMContentLoaded", function (e) {
         }, true);
     }
 
+    var requirementStatus = document.querySelectorAll('select.or-requirement-status-field');
+    console.log(requirementStatus);
+    for (var i = 0; i < requirementStatus.length; i++) {
+        requirementStatus[i].addEventListener('change', (event) => {
+            // console.log("FOCUSED.");
+            log(event);
+        }, true);
+    }
 
+    refreshSessionId();
 });
 
 /***** DEVELOPER STUFF *****/
