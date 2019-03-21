@@ -185,7 +185,10 @@ function simplifyObject(object) {
  */
 function addMetadata(event) {
     event['url'] = window.location.href;
-    event['unixTime'] = Date.now();
+    event['unixTime'] = Math.floor(new Date().getTime() / 1000);
+    let currentUrl = window.location.href;
+    console.log(currentUrl);
+    event['projectId'] = currentUrl.split('/')[5];
     return event;
 }
 
@@ -195,6 +198,7 @@ function addMetadata(event) {
  */
 function log(event) {
     console.log(event);
+    // let requirementSpecificInformation = getRequirementSpecificInformation(event);
     let simplifiedEvent = simplifyObject(event);
     let enhancedEvent = addMetadata(simplifiedEvent);
     enhancedEvent['requirementId'] = getRequirementId(event);
@@ -217,8 +221,31 @@ function getRequirementId(event) {
     else if (event.target.className.startsWith("or-requirement-status-field")) {
         requirementId = event.target.parentNode.parentNode.parentNode.getAttribute("data-id");
     }
+    console.log(requirementId);
     return requirementId;
 }
+
+// function getRequirementSpecificInformation(event) {
+//     let typeSpecificData = {};
+//     let requirementId = "";
+//     if (event.target.className.startsWith("or-requirement-title")) {
+//         requirementId = event.target.parentNode.parentNode.getAttribute("data-id");
+//         typeSpecificData['requirementId'] = requirementId;
+//         typeSpecificData['value'] = event.target.innerText;
+//     }
+//     else if (event.target.className.startsWith("note-editable")) {
+//         requirementId = event.target.parentNode.parentNode.parentNode.parentNode.getAttribute("data-id");
+//         typeSpecificData['requirementId'] = requirementId;
+//         typeSpecificData['value'] = event.target.innerText;
+//     }
+//     else if (event.target.className.startsWith("or-requirement-status-field")) {
+//         requirementId = event.target.parentNode.parentNode.parentNode.getAttribute("data-id");
+//         typeSpecificData['requirementId'] = requirementId;
+//         typeSpecificData['value'] = event.target.value;
+//     }
+//     console.log(typeSpecificData);
+//     return typeSpecificData;
+// }
 
 /**
  * Send log with al necessary data.
@@ -293,12 +320,12 @@ document.addEventListener("DOMContentLoaded", function (e) {
     var l = requirementTitles.length;
     for (var i = 0; i < l; i++) {
         requirementTitles[i].addEventListener('focus', (event) => {
-            // console.log("FOCUSED.");
+            console.log("FOCUSED .or-requirement-title");
             log(event);
         }, true);
 
         requirementTitles[i].addEventListener('blur', (event) => {
-            // console.log("UNFOCUSED.");
+            console.log("UNFOCUSED .or-requirement-title");
             log(event);
         }, true);
     }
@@ -307,12 +334,12 @@ document.addEventListener("DOMContentLoaded", function (e) {
     console.log(requirementTexts);
     for (var i = 0; i < requirementTexts.length; i++) {
         requirementTexts[i].addEventListener('focus', (event) => {
-            // console.log("FOCUSED.");
+            console.log("FOCUSED .note-editable");
             log(event);
         }, true);
 
         requirementTexts[i].addEventListener('blur', (event) => {
-            // console.log("UNFOCUSED.");
+            console.log("UNFOCUSED .note-editable");
             log(event);
         }, true);
     }
@@ -321,7 +348,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
     console.log(requirementStatus);
     for (var i = 0; i < requirementStatus.length; i++) {
         requirementStatus[i].addEventListener('change', (event) => {
-            // console.log("FOCUSED.");
+            console.log("CHANGED .note-editable");
             log(event);
         }, true);
     }
