@@ -72,8 +72,7 @@ function refreshSessionId() {
         // If cookie is expired generate a new one with new session id.
         setCookie("sessionId", generateSessionId(), cookieExpieryTime);
         setCookie("timestamp", timestamp, cookieExpieryTime);
-    }
-    else {
+    } else {
         // If cookie is not expired set new cookie with same value but extended expiry time.
         setCookie("sessionId", sessionId, cookieExpieryTime);
         setCookie("timestamp", timestamp, cookieExpieryTime);
@@ -100,8 +99,7 @@ function post(url, body, headerProperties) {
     xhr.onload = function () {
         if (xhr.status === 200) {
             console.log(xhr.status);
-        }
-        else {
+        } else {
             console.log(xhr.status);
         }
     };
@@ -214,11 +212,9 @@ function getRequirementId(event) {
     let requirementId = "";
     if (event.target.className.startsWith("or-requirement-title")) {
         requirementId = event.target.parentNode.parentNode.getAttribute("data-id");
-    }
-    else if (event.target.className.startsWith("note-editable")) {
+    } else if (event.target.className.startsWith("note-editable")) {
         requirementId = event.target.parentNode.parentNode.parentNode.parentNode.getAttribute("data-id");
-    }
-    else if (event.target.className.startsWith("or-requirement-status-field")) {
+    } else if (event.target.className.startsWith("or-requirement-status-field")) {
         requirementId = event.target.parentNode.parentNode.parentNode.getAttribute("data-id");
     }
     console.log(requirementId);
@@ -254,7 +250,7 @@ function getRequirementId(event) {
 function send_log(log) {
     let url = endpoint_url;
     let sessionId = getCookie("sessionId");
-    let header = { "sessionId": sessionId, "Content-Type": "application/json" };
+    let header = {"sessionId": sessionId, "Content-Type": "application/json"};
     post(url, log, header);
 }
 
@@ -309,51 +305,54 @@ let logHandler = function (event) {
 //     });
 //     let config = { attributes: true, childList: true, characterData: true }
 //     observer.observe(target, config);
-
+//
 //     refreshSessionId();
 // });
 
 document.addEventListener("DOMContentLoaded", function (e) {
-    // var requirementTitles = document.getElementsByClassName('or-requirement-title');
-    var requirementTitles = document.querySelectorAll('.or-requirement-title');
-    console.log(requirementTitles);
-    var l = requirementTitles.length;
-    for (var i = 0; i < l; i++) {
-        requirementTitles[i].addEventListener('focus', (event) => {
-            console.log("FOCUSED .or-requirement-title");
-            log(event);
-        }, true);
+    console.log('DOM Loaded');
+    $("body").ajaxStop(function () {
+        console.log('AJAX Completed');
+        var requirementTitles = document.querySelectorAll('.or-requirement-title');
+        console.log(requirementTitles);
+        var l = requirementTitles.length;
+        for (var i = 0; i < l; i++) {
+            requirementTitles[i].addEventListener('focus', (event) => {
+                console.log("FOCUSED .or-requirement-title");
+                log(event);
+            }, true);
 
-        requirementTitles[i].addEventListener('blur', (event) => {
-            console.log("UNFOCUSED .or-requirement-title");
-            log(event);
-        }, true);
-    }
+            requirementTitles[i].addEventListener('blur', (event) => {
+                console.log("UNFOCUSED .or-requirement-title");
+                log(event);
+            }, true);
+        }
 
-    var requirementTexts = document.querySelectorAll('.note-editable');
-    console.log(requirementTexts);
-    for (var i = 0; i < requirementTexts.length; i++) {
-        requirementTexts[i].addEventListener('focus', (event) => {
-            console.log("FOCUSED .note-editable");
-            log(event);
-        }, true);
+        var requirementTexts = document.querySelectorAll('.note-editable');
+        console.log(requirementTexts);
+        for (var i = 0; i < requirementTexts.length; i++) {
+            requirementTexts[i].addEventListener('focus', (event) => {
+                console.log("FOCUSED .note-editable");
+                log(event);
+            }, true);
 
-        requirementTexts[i].addEventListener('blur', (event) => {
-            console.log("UNFOCUSED .note-editable");
-            log(event);
-        }, true);
-    }
+            requirementTexts[i].addEventListener('blur', (event) => {
+                console.log("UNFOCUSED .note-editable");
+                log(event);
+            }, true);
+        }
 
-    var requirementStatus = document.querySelectorAll('select.or-requirement-status-field');
-    console.log(requirementStatus);
-    for (var i = 0; i < requirementStatus.length; i++) {
-        requirementStatus[i].addEventListener('change', (event) => {
-            console.log("CHANGED .note-editable");
-            log(event);
-        }, true);
-    }
+        var requirementStatus = document.querySelectorAll('select.or-requirement-status-field');
+        console.log(requirementStatus);
+        for (var i = 0; i < requirementStatus.length; i++) {
+            requirementStatus[i].addEventListener('change', (event) => {
+                console.log("CHANGED .note-editable");
+                log(event);
+            }, true);
+        }
 
-    refreshSessionId();
+        refreshSessionId();
+    });
 });
 
 /***** DEVELOPER STUFF *****/
