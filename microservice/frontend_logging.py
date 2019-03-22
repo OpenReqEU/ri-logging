@@ -15,6 +15,7 @@ from . import data_access
 from . import jsobf
 from pymongo.collection import Collection
 from pymongo.errors import ServerSelectionTimeoutError
+import dateutil.parser as dp
 
 api = Blueprint('frontend_logging_api', __name__, url_prefix='/frontend')
 
@@ -97,7 +98,27 @@ def log_get():
     mimetype = 'application/json'
     response_body = json.dumps({})
     try:
-        response_body = json.dumps({'logs': list(frontend_logs.find({}, {'_id': 0}))})
+        from_ = request.args.get('from')
+        to_ = request.args.get('to')
+        project_id = request.args.get('projectId')
+        query = {'$and': []}
+        if project_id:
+            sub_query = {'body.projectId': project_id}
+            query['$and'].append(sub_query)
+        if from_:
+            from_ = f'{from_}T00:00:00.000Z'
+            print(from_)
+            from_parsed = dp.parse(from_)
+            from_unix = from_parsed.strftime('%s')
+            query['$and'].append({'body.unixTime': {'$gte': int(from_unix)}})
+        if to_:
+            to_ = f'{to_}T00:00:00.000Z'
+            print(to_)
+            to_parsed = dp.parse(to_)
+            to_unix = to_parsed.strftime('%s')
+            query['$and'].append({'body.unixTime': {'$lte': int(to_unix)}})
+        print(query)
+        response_body = json.dumps({'logs': list(frontend_logs.find(query, {'_id': 0}))})
     except (data_access.ServerSelectionTimeoutError, data_access.NetworkTimeout, Exception) as e:
         http_status = 500
         mimetype = 'application/json'
