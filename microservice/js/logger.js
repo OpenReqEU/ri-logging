@@ -311,7 +311,7 @@ let logHandler = function (event) {
 
 document.addEventListener("DOMContentLoaded", function (e) {
     console.log('DOM Loaded');
-    $("body").ajaxStop(function () {
+    $(document).ajaxStop(function () {
         console.log('AJAX Completed');
         var requirementTitles = document.querySelectorAll('.or-requirement-title');
         console.log(requirementTitles);
