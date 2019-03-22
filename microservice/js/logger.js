@@ -311,6 +311,7 @@ let logHandler = function (event) {
 
 document.addEventListener("DOMContentLoaded", function (e) {
     console.log('DOM Loaded');
+    refreshSessionId();
     $(document).ajaxStop(function () {
         console.log('AJAX Completed');
         var requirementTitles = document.querySelectorAll('.or-requirement-title');
@@ -350,8 +351,6 @@ document.addEventListener("DOMContentLoaded", function (e) {
                 log(event);
             }, true);
         }
-
-        refreshSessionId();
     });
 });
 
