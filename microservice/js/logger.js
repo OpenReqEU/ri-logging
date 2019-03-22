@@ -183,7 +183,9 @@ function simplifyObject(object) {
  */
 function addMetadata(event) {
     event['url'] = window.location.href;
-    event['unixTime'] = Math.floor(new Date().getTime() / 1000);
+    let d = new Date();
+    event['isoTime'] = d;
+    event['unixTime'] = Math.floor(d.getTime() / 1000);
     let currentUrl = window.location.href;
     console.log(currentUrl);
     event['projectId'] = currentUrl.split('/')[5];
