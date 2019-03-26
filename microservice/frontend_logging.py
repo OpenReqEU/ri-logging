@@ -4,18 +4,19 @@ author:     Volodymyr Biryuk
 
 This module provides the api blueprints for retrieving frontend debug_logs.
 """
-from flask import Blueprint, Response, current_app, request
-from . import auth
 import json
-from jsmin import jsmin
-import re
 import os
-from . import util
-from . import data_access
-from . import jsobf
+import re
+
+import dateutil.parser as dp
+from flask import Blueprint, Response, current_app, request
+from jsmin import jsmin
 from pymongo.collection import Collection
 from pymongo.errors import ServerSelectionTimeoutError
-import dateutil.parser as dp
+
+from . import auth
+from . import data_access
+from . import util
 
 api = Blueprint('frontend_logging_api', __name__, url_prefix='/frontend')
 
@@ -119,6 +120,65 @@ def log_get():
             query['$and'].append({'body.unixTime': {'$lte': int(to_unix)}})
         print(query)
         response_body = json.dumps({'logs': list(frontend_logs.find(query, {'_id': 0}))})
+    except (data_access.ServerSelectionTimeoutError, data_access.NetworkTimeout, Exception) as e:
+        http_status = 500
+        mimetype = 'application/json'
+        current_app.logger.error(f'Error: {e}')
+        response_body = json.dumps({'message': f'Something went wrong.'})
+    finally:
+        response = Response(response=response_body, status=http_status, mimetype=mimetype)
+        current_app.logger.debug(f'Responding with code: {http_status}')
+        return response
+
+
+@api.route('/log/changes', methods=['GET'])
+def project_changes_get():
+    http_status = 200
+    mimetype = 'application/json'
+    response_body = json.dumps({})
+    try:
+        query = [
+            {
+                "$match": {
+                    "body.type": "blur",
+                    "body.targetclassName": "note-editable"
+                }
+            },
+            {
+                "$project": {
+                    "week": {
+                        "$week": "$body.isoTime"
+                    },
+                    "year": {
+                        "$year": "$body.isoTime"
+                    },
+                    "targetclassName": "$body.targetclassName",
+                    "projectId": "$body.projectId"
+                }
+            },
+            {
+                "$group": {
+                    "_id": {
+                        "projectId": "$projectId",
+                        "w": "$week",
+                        "y": "$year"
+                    },
+                    "documentCount": {
+                        "$sum": 1.0
+                    }
+                }
+            },
+            {
+                "$project": {
+                    "_id": 0.0,
+                    "projectId": "$_id.projectId",
+                    "week": "$_id.w",
+                    "year": "$_id.y",
+                    "changes": "$documentCount"
+                }
+            }
+        ]
+        response_body = json.dumps({'logs': list(frontend_logs.aggregate(query))})
     except (data_access.ServerSelectionTimeoutError, data_access.NetworkTimeout, Exception) as e:
         http_status = 500
         mimetype = 'application/json'
