@@ -189,6 +189,7 @@ function addMetadata(event) {
     let currentUrl = window.location.href;
     console.log(currentUrl);
     event['projectId'] = currentUrl.split('/')[5];
+    event['username'] = document.querySelector(".or-avatar").getAttribute("alt");
     return event;
 }
 
