@@ -4,8 +4,7 @@ author:     Volodymyr Biryuk
 
 Module for functions that are reused throughout the project.
 """
-import zipfile
-import tarfile
+import datetime
 import gzip
 
 
@@ -34,3 +33,11 @@ def unzip(full_path):
     except Exception as e:
         raise e
     return unzipped_file
+
+
+def serialize(obj):
+    """JSON serializer for objects not serializable by default json code"""
+    serialized = None
+    if isinstance(obj, datetime.datetime):
+        serialized = obj.__str__()
+    return serialized

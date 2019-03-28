@@ -7,6 +7,7 @@ This module provides the api blueprints for retrieving frontend debug_logs.
 import json
 import os
 import re
+from email.policy import default
 
 import dateutil.parser as dp
 from flask import Blueprint, Response, current_app, request
@@ -121,7 +122,7 @@ def log_get():
                 to_unix = to_parsed.strftime('%s')
                 query['$and'].append({'body.unixTime': {'$lte': int(to_unix)}})
         print(query)
-        response_body = json.dumps({'logs': list(frontend_logs.find(query, {'_id': 0}))})
+        response_body = json.dumps({'logs': list(frontend_logs.find(query, {'_id': 0}))}, default=util.serialize)
     except (data_access.ServerSelectionTimeoutError, data_access.NetworkTimeout, Exception) as e:
         http_status = 500
         mimetype = 'application/json'
