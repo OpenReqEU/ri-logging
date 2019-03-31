@@ -159,40 +159,35 @@ def changes_by_project_get():
                 }
             },
             {
+                "$group": {
+                    "_id": "$_id.projectId",
+                    "changes": {
+                        "$push": {
+                            "k": "$_id.domElement",
+                            "v": "$count"
+                        }
+                    }
+                }
+            },
+            {
                 "$project": {
                     "_id": 0.0,
-                    "projectId": "$_id.projectId",
-                    "domElement": "$_id.domElement",
-                    "changeCount": "$count"
+                    "projectId": "$_id",
+                    "changeCount": {
+                        "$arrayToObject": "$changes"
+                    }
                 }
             }
         ]
         query_result = list(frontend_logs.aggregate(query))
         print(query_result)
-        result = {}
-        dom_element_mapping = {
-            'or-requirement-title': 'title',
-            'note-editable': 'description',
-            'select-dropdown': 'status',
-            'title': 'or-requirement-title',
-            'description': 'note-editable',
-            'status': 'select-dropdown'
-        }
+        result = []
         for item in query_result:
-            project_id = item['projectId']
-            dom_element = item['domElement']
-            element = dom_element_mapping[dom_element]
-            change_count = item['changeCount']
-            if project_id in result:
-                result[project_id][element] = change_count
-            else:
-                result[project_id] = {
-                    'title': 0,
-                    'description': 0,
-                    'status': 0
-                }
-                result[project_id][element] = change_count
-        print(result)
+            change_count = {}
+            for k, v in item['changeCount'].items():
+                change_count[dom_element_mapping[k]] = v
+            item['changeCount'] = change_count
+            result.append(item)
         response_body = json.dumps({'changes': result}, default=util.serialize)
     except (data_access.ServerSelectionTimeoutError, data_access.NetworkTimeout, Exception) as e:
         http_status = 500
@@ -262,14 +257,12 @@ def log_by_project_id_changes_get(project_id: str, requirement_id: str = None):
         if requirement_id:
             query[0]['$match']['$and'][0]['body.requirementId'] = requirement_id
         query_result = list(frontend_logs.aggregate(query))
-        result = {
-            'projectId': project_id,
-            'requirements': {}
-        }
+        print(query_result)
+        result = {}
         for item in query_result:
             requirement_id = item['requirementId']
-            if not requirement_id in result['requirements']:
-                result['requirements'][requirement_id] = {
+            if requirement_id not in result[requirement_id]:
+                result[project_id][requirement_id] = {
                     'title': 0,
                     'description': 0,
                     'status': 0
