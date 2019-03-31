@@ -143,10 +143,8 @@ def log_by_project_id_get(project_id: str, requirement_id: str = None):
 @auth.auth_single
 def changes_all_projects_get():
     """
-    Return all logs for a given project and requirement.
-    :param project_id: The project id.
-    :param requirement_id: The requirement item's id (optional).
-    :return: The logs.
+    Return the aggregated (all requirements) number of changes to the title, description or status per project.
+    :return: Aggregated count of changes to the title, description or status of any requirement of the project.
     """
     http_status = 200
     mimetype = 'application/json'
@@ -192,7 +190,14 @@ def changes_all_projects_get():
             change_count = {}
             for k, v in item['changeCount'].items():
                 change_count[dom_element_mapping[k]] = v
-            item['changeCount'] = change_count
+            # Add zero values
+            for k in default_count.keys():
+                if k not in change_count:
+                    change_count[k] = 0
+            item['changeCount'] = {}
+            #  Sort by key
+            for k in sorted(change_count):
+                item['changeCount'][k] = change_count[k]
             result.append(item)
         response_body = json.dumps({'changes': result}, default=util.serialize)
     except (data_access.ServerSelectionTimeoutError, data_access.NetworkTimeout, Exception) as e:
@@ -210,10 +215,9 @@ def changes_all_projects_get():
 @auth.auth_single
 def changes_one_project_get(project_id):
     """
-    Return all logs for a given project and requirement.
+    Return for a given project the number of changes to the title, description or status per requirement.
     :param project_id: The project id.
-    :param requirement_id: The requirement item's id (optional).
-    :return: The logs.
+    :return: Count of changes to the title, description or status of requirements of a given project.
     """
     http_status = 200
     mimetype = 'application/json'
@@ -283,93 +287,6 @@ def changes_one_project_get(project_id):
         response = Response(response=response_body, status=http_status, mimetype=mimetype)
         current_app.logger.debug(f'Responding with code: {http_status}')
         return response
-
-
-# @api.route('/changes/<project_id>', defaults={'requirement_id': None}, methods=['GET'])
-# @api.route('/changes/<project_id>/<requirement_id>')
-# @auth.auth_single
-# def log_by_project_id_changes_get(project_id: str, requirement_id: str = None):
-#     """
-#     Return all logs for a given project and requirement.
-#     :param project_id: The project id.
-#     :param requirement_id: The requirement item's id (optional).
-#     :return: The logs.
-#     """
-#     http_status = 200
-#     mimetype = 'application/json'
-#     response_body = json.dumps({})
-#     try:
-#         query = [
-#             {
-#                 "$match": {
-#                     "$and": [
-#                         {
-#                             "body.projectId": project_id
-#                         },
-#                         {
-#                             "$or": [
-#                                 {
-#                                     "body.type": "blur"
-#                                 },
-#                                 {
-#                                     "body.type": "change"
-#                                 }
-#                             ]
-#                         }
-#                     ]
-#                 }
-#             },
-#             {
-#                 "$group": {
-#                     "_id": {
-#                         "requirementId": "$body.requirementId",
-#                         "domElement": "$body.targetclassName"
-#                     },
-#                     "count": {
-#                         "$sum": 1.0
-#                     }
-#                 }
-#             },
-#             {
-#                 "$project": {
-#                     "_id": 0.0,
-#                     "requirementId": "$_id.requirementId",
-#                     "domElement": "$_id.domElement",
-#                     "count": "$count"
-#                 }
-#             }
-#         ]
-#         if requirement_id:
-#             query[0]['$match']['$and'][0]['body.requirementId'] = requirement_id
-#         query_result = list(frontend_logs.aggregate(query))
-#         print(query_result)
-#         result = {}
-#         for item in query_result:
-#             requirement_id = item['requirementId']
-#             if requirement_id not in result[requirement_id]:
-#                 result[project_id][requirement_id] = {
-#                     'title': 0,
-#                     'description': 0,
-#                     'status': 0
-#                 }
-#                 dom_elemnt_name = item['domElement']
-#                 element_name = dom_element_mapping[dom_elemnt_name]
-#                 result['requirements'][requirement_id][element_name] = item['count']
-#             else:
-#                 dom_elemnt_name = item['domElement']
-#                 element_name = dom_element_mapping[dom_elemnt_name]
-#                 result['requirements'][requirement_id][element_name] = item['count']
-#         print(result)
-#         response_body = json.dumps({'changes': result}, default=util.serialize)
-#     except (data_access.ServerSelectionTimeoutError, data_access.NetworkTimeout, Exception) as e:
-#         http_status = 500
-#         mimetype = 'application/json'
-#         current_app.logger.error(f'Error: {e}')
-#         response_body = json.dumps({'message': f'Something went wrong.'})
-#     finally:
-#         response = Response(response=response_body, status=http_status, mimetype=mimetype)
-#         current_app.logger.debug(f'Responding with code: {http_status}')
-#         return response
 
 
 @api.route('/log', methods=['GET'])
@@ -477,69 +394,6 @@ def log_change_get():
         response = Response(response=response_body, status=http_status, mimetype=mimetype)
         current_app.logger.debug(f'Responding with code: {http_status}')
         return response
-
-
-@api.route('/log/changes', methods=['GET'])
-def project_changes_get():
-    http_status = 200
-    mimetype = 'application/json'
-    response_body = json.dumps({})
-    try:
-        query = [
-            {
-                "$match": {
-                    "body.type": "blur",
-                    "body.targetclassName": "note-editable"
-                }
-            },
-            {
-                "$project": {
-                    "week": {
-                        "$week": "$body.isoTime"
-                    },
-                    "year": {
-                        "$year": "$body.isoTime"
-                    },
-                    "targetclassName": "$body.targetclassName",
-                    "projectId": "$body.projectId"
-                }
-            },
-            {
-                "$group": {
-                    "_id": {
-                        "projectId": "$projectId",
-                        "w": "$week",
-                        "y": "$year"
-                    },
-                    "documentCount": {
-                        "$sum": 1.0
-                    }
-                }
-            },
-            {
-                "$project": {
-                    "_id": 0.0,
-                    "projectId": "$_id.projectId",
-                    "week": "$_id.w",
-                    "year": "$_id.y",
-                    "changes": "$documentCount"
-                }
-            }
-        ]
-        response_body = json.dumps({'logs': list(frontend_logs.aggregate(query))})
-    except (data_access.ServerSelectionTimeoutError, data_access.NetworkTimeout, Exception) as e:
-        http_status = 500
-        mimetype = 'application/json'
-        current_app.logger.error(f'Error: {e}')
-        response_body = json.dumps({'message': f'Something went wrong.'})
-    finally:
-        response = Response(response=response_body, status=http_status, mimetype=mimetype)
-        current_app.logger.debug(f'Responding with code: {http_status}')
-        return response
-
-
-# @api.route('/log/<project_id>')
-# def log_by_project_id_
 
 
 @api.route('/log', methods=['POST'])
