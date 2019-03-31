@@ -23,6 +23,15 @@ api = Blueprint('frontend_logging_api', __name__, url_prefix='/frontend')
 
 frontend_logs: Collection = None
 
+dom_element_mapping = {
+    'or-requirement-title form-control': 'title',
+    'note-editable': 'description',
+    'select-dropdown': 'status',
+    'title': 'or-requirement-title form-control',
+    'description': 'note-editable',
+    'status': 'select-dropdown'
+}
+
 
 @api.before_app_first_request
 def __init_api():
@@ -124,6 +133,78 @@ def log_by_project_id_get(project_id: str, requirement_id: str = None):
         return response
 
 
+@api.route('/changes', methods=['GET'])
+@auth.auth_single
+def changes_by_project_get():
+    """
+    Return all logs for a given project and requirement.
+    :param project_id: The project id.
+    :param requirement_id: The requirement item's id (optional).
+    :return: The logs.
+    """
+    http_status = 200
+    mimetype = 'application/json'
+    response_body = json.dumps({})
+    try:
+        query = [
+            {
+                "$group": {
+                    "_id": {
+                        "projectId": "$body.projectId",
+                        "domElement": "$body.targetclassName"
+                    },
+                    "count": {
+                        "$sum": 1.0
+                    }
+                }
+            },
+            {
+                "$project": {
+                    "_id": 0.0,
+                    "projectId": "$_id.projectId",
+                    "domElement": "$_id.domElement",
+                    "changeCount": "$count"
+                }
+            }
+        ]
+        query_result = list(frontend_logs.aggregate(query))
+        print(query_result)
+        result = {}
+        dom_element_mapping = {
+            'or-requirement-title': 'title',
+            'note-editable': 'description',
+            'select-dropdown': 'status',
+            'title': 'or-requirement-title',
+            'description': 'note-editable',
+            'status': 'select-dropdown'
+        }
+        for item in query_result:
+            project_id = item['projectId']
+            dom_element = item['domElement']
+            element = dom_element_mapping[dom_element]
+            change_count = item['changeCount']
+            if project_id in result:
+                result[project_id][element] = change_count
+            else:
+                result[project_id] = {
+                    'title': 0,
+                    'description': 0,
+                    'status': 0
+                }
+                result[project_id][element] = change_count
+        print(result)
+        response_body = json.dumps({'changes': result}, default=util.serialize)
+    except (data_access.ServerSelectionTimeoutError, data_access.NetworkTimeout, Exception) as e:
+        http_status = 500
+        mimetype = 'application/json'
+        current_app.logger.error(f'Error: {e}')
+        response_body = json.dumps({'message': f'Something went wrong.'})
+    finally:
+        response = Response(response=response_body, status=http_status, mimetype=mimetype)
+        current_app.logger.debug(f'Responding with code: {http_status}')
+        return response
+
+
 @api.route('/changes/<project_id>', defaults={'requirement_id': None}, methods=['GET'])
 @api.route('/changes/<project_id>/<requirement_id>')
 @auth.auth_single
@@ -184,14 +265,6 @@ def log_by_project_id_changes_get(project_id: str, requirement_id: str = None):
         result = {
             'projectId': project_id,
             'requirements': {}
-        }
-        dom_element_mapping = {
-            'or-requirement-title': 'title',
-            'note-editable': 'description',
-            'select-dropdown': 'status',
-            'title': 'or-requirement-title',
-            'description': 'note-editable',
-            'status': 'select-dropdown'
         }
         for item in query_result:
             requirement_id = item['requirementId']
