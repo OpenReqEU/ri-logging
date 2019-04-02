@@ -25,10 +25,12 @@ frontend_logs: Collection = None
 
 dom_element_mapping = {
     'or-requirement-title form-control': 'title',
+    'or-requirement-title': 'title',
+    'note-editable or-description-active': 'description',
     'note-editable': 'description',
     'select-dropdown': 'status',
     'title': 'or-requirement-title form-control',
-    'description': 'note-editable',
+    'description': 'note-editable or-description-active',
     'status': 'select-dropdown'
 }
 
