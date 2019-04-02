@@ -346,7 +346,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
             }, true);
         }
 
-        var requirementStatus = document.querySelectorAll('select.or-requirement-status-field');
+        var requirementStatus = document.querySelectorAll('select.or-requirement-status-field initialized');
         console.log(requirementStatus);
         for (var i = 0; i < requirementStatus.length; i++) {
             requirementStatus[i].addEventListener('change', (event) => {
