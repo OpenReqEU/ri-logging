@@ -228,7 +228,16 @@ def changes_one_project_get(project_id):
         query = [
             {
                 "$match": {
-                    "body.projectId": project_id
+                    '$and': [
+                        {"body.projectId": project_id},
+                        {'body.type': 'blur'},
+                        {'body.type': 'change'},
+                        {'body.targetclassName': 'note-editable'},
+                        {'body.targetclassName': 'note-editable or-description-active'},
+                        {'body.targetclassName': 'or-requirement-title form-control'},
+                        {'body.targetclassName': 'or-requirement-title'},
+                        {'body.targetclassName': 'select-dropdown'},
+                    ]
                 }
             },
             {
