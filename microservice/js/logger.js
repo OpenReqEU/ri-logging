@@ -327,7 +327,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
             }, true);
 
             requirementTitles[i].addEventListener('blur', (event) => {
-                console.log("UNFOCUSED .or-requirement-title");
+                console.log("CHANGED TITLE");
                 log(event);
             }, true);
         }
@@ -341,16 +341,25 @@ document.addEventListener("DOMContentLoaded", function (e) {
             }, true);
 
             requirementTexts[i].addEventListener('blur', (event) => {
-                console.log("UNFOCUSED .note-editable");
+                console.log("CHANGED DESCRIPTION");
                 log(event);
             }, true);
         }
 
-        var requirementStatus = document.querySelectorAll('select.or-requirement-status-field initialized');
-        console.log(requirementStatus);
-        for (var i = 0; i < requirementStatus.length; i++) {
-            requirementStatus[i].addEventListener('change', (event) => {
-                console.log("CHANGED .note-editable");
+        var requirementStatusDropDown = document.querySelectorAll('select.or-requirement-status-field initialized');
+        console.log(requirementStatusDropDown);
+        for (var i = 0; i < requirementStatusDropDown.length; i++) {
+            requirementStatusDropDown[i].addEventListener('change', (event) => {
+                console.log("CHANGED STATUS");
+                log(event);
+            }, true);
+        }
+
+        var requirementStatusInput = document.querySelectorAll('input.or-requirement-status-field initialized');
+        console.log(requirementStatusInput);
+        for (var i = 0; i < requirementStatusInput.length; i++) {
+            requirementStatusInput[i].addEventListener('input', (event) => {
+                console.log("CHANGED STATUS");
                 log(event);
             }, true);
         }
