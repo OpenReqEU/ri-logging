@@ -346,7 +346,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
             }, true);
         }
 
-        var requirementStatusDropDown = document.querySelectorAll('select.or-requirement-status-field initialized');
+        var requirementStatusDropDown = document.querySelectorAll('or-requirement-status-field .initialized');
         console.log(requirementStatusDropDown);
         for (var i = 0; i < requirementStatusDropDown.length; i++) {
             requirementStatusDropDown[i].addEventListener('change', (event) => {
@@ -355,7 +355,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
             }, true);
         }
 
-        var requirementStatusInput = document.querySelectorAll('input.or-requirement-status-field initialized');
+        var requirementStatusInput = document.querySelectorAll('.select-dropdown');
         console.log(requirementStatusInput);
         for (var i = 0; i < requirementStatusInput.length; i++) {
             requirementStatusInput[i].addEventListener('input', (event) => {
