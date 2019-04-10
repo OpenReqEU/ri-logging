@@ -209,11 +209,14 @@ def changes_all_projects_get():
         for item in query_result:
             change_count = copy.deepcopy(default_count)
             for k, v in item['changeCount'].items():
-                change_count[dom_element_mapping[k]] = v
+                try:
+                    change_count[dom_element_mapping[k]] = v
+                except KeyError as e:
+                    raise e
             item['changeCount'] = change_count
             result.append(item)
         response_body = json.dumps({'changes': result}, default=util.serialize)
-    except (data_access.ServerSelectionTimeoutError, data_access.NetworkTimeout, Exception) as e:
+    except (data_access.ServerSelectionTimeoutError, data_access.NetworkTimeout, KeyError, Exception) as e:
         http_status = 500
         mimetype = 'application/json'
         current_app.logger.error(f'Error: {e}')
