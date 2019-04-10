@@ -4,6 +4,7 @@ author:     Volodymyr Biryuk
 
 This module provides the api blueprints for retrieving frontend debug_logs.
 """
+import copy
 import json
 import os
 import re
@@ -35,9 +36,9 @@ dom_element_mapping = {
 }
 
 default_count = {
-    'title': 0,
     'description': 0,
-    'status': 0
+    'status': 0,
+    'title': 0
 }
 
 
@@ -154,6 +155,23 @@ def changes_all_projects_get():
     try:
         query = [
             {
+                "$match": {
+                    '$and': [
+                        {'$or': [
+                            {'body.type': 'blur'},
+                            {'body.type': 'change'}
+                        ]},
+                        {'$or': [
+                            {'body.targetclassName': 'note-editable'},
+                            {'body.targetclassName': 'note-editable or-description-active'},
+                            {'body.targetclassName': 'or-requirement-title form-control'},
+                            {'body.targetclassName': 'or-requirement-title'},
+                            {'body.targetclassName': 'select-dropdown'}
+                        ]},
+                    ]
+                }
+            },
+            {
                 "$group": {
                     "_id": {
                         "projectId": "$body.projectId",
@@ -189,17 +207,10 @@ def changes_all_projects_get():
         print(query_result)
         result = []
         for item in query_result:
-            change_count = {}
+            change_count = copy.deepcopy(default_count)
             for k, v in item['changeCount'].items():
                 change_count[dom_element_mapping[k]] = v
-            # Add zero values
-            for k in default_count.keys():
-                if k not in change_count:
-                    change_count[k] = 0
-            item['changeCount'] = {}
-            #  Sort by key
-            for k in sorted(change_count):
-                item['changeCount'][k] = change_count[k]
+            item['changeCount'] = change_count
             result.append(item)
         response_body = json.dumps({'changes': result}, default=util.serialize)
     except (data_access.ServerSelectionTimeoutError, data_access.NetworkTimeout, Exception) as e:
@@ -230,13 +241,17 @@ def changes_one_project_get(project_id):
                 "$match": {
                     '$and': [
                         {"body.projectId": project_id},
-                        {'body.type': 'blur'},
-                        {'body.type': 'change'},
-                        {'body.targetclassName': 'note-editable'},
-                        {'body.targetclassName': 'note-editable or-description-active'},
-                        {'body.targetclassName': 'or-requirement-title form-control'},
-                        {'body.targetclassName': 'or-requirement-title'},
-                        {'body.targetclassName': 'select-dropdown'},
+                        {'$or': [
+                            {'body.type': 'blur'},
+                            {'body.type': 'change'}
+                        ]},
+                        {'$or': [
+                            {'body.targetclassName': 'note-editable'},
+                            {'body.targetclassName': 'note-editable or-description-active'},
+                            {'body.targetclassName': 'or-requirement-title form-control'},
+                            {'body.targetclassName': 'or-requirement-title'},
+                            {'body.targetclassName': 'select-dropdown'}
+                        ]},
                     ]
                 }
             },
