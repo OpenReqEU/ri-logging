@@ -357,10 +357,10 @@ document.addEventListener("DOMContentLoaded", function (e) {
             }, true);
         }
 
-        var requirementStatusInput = document.querySelectorAll('.select-dropdown');
+        var requirementStatusInput = document.querySelectorAll('.dropdown-content .select-dropdown > li');
         console.log(requirementStatusInput);
         for (var i = 0; i < requirementStatusInput.length; i++) {
-            requirementStatusInput[i].addEventListener('input', (event) => {
+            requirementStatusInput[i].addEventListener('click', (event) => {
                 console.log("CHANGED STATUS");
                 log(event);
             }, true);
