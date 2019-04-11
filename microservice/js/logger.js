@@ -348,7 +348,7 @@ document.addEventListener("DOMContentLoaded", function (e) {
             }, true);
         }
 
-        var requirementStatusDropDown = document.querySelectorAll('or-requirement-status-field .initialized');
+        var requirementStatusDropDown = document.querySelectorAll('.or-requirement-status-field .initialized');
         console.log(requirementStatusDropDown);
         for (var i = 0; i < requirementStatusDropDown.length; i++) {
             requirementStatusDropDown[i].addEventListener('change', (event) => {
