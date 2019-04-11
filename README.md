@@ -100,7 +100,7 @@ For each property in the base_confg.json the -e flag in Docker:
 
 1. Run from the project root directory. The `docker run` command requires an `-e` flag for each property form the `config_base.json`. 
     ```console
-    foo@bar:~$ docker run -d -p 9798:9798-v /directory_of_nginx_logs:/back_end_log -e DB_HOST="0.0.0.0" --name ri-logging
+    foo@bar:~$ docker run -d -p 9798:9798 -v /directory_of_nginx_logs:/back_end_log -e DB_HOST="0.0.0.0" --name ri-logging
     ```
 
 ### How to Use This Microservice
