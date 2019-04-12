@@ -142,94 +142,10 @@ def log_by_project_id_get(project_id: str, requirement_id: str = None):
         return response
 
 
-@api.route('/changes', methods=['GET'])
+@api.route('/change', defaults={'project_id': None}, methods=['GET'])
+@api.route('/change/<project_id>')
 @auth.auth_single
-def changes_all_projects_get():
-    """
-    Return the aggregated (all requirements) number of changes to the title, description or status per project.
-    :return: Aggregated count of changes to the title, description or status of any requirement of the project.
-    """
-    http_status = 200
-    mimetype = 'application/json'
-    response_body = json.dumps({})
-    try:
-        query = [
-            {
-                "$match": {
-                    '$and': [
-                        {'$or': [
-                            {'body.type': 'blur'},
-                            {'body.type': 'change'}
-                        ]},
-                        {'$or': [
-                            {'body.targetclassName': 'note-editable'},
-                            {'body.targetclassName': 'note-editable or-description-active'},
-                            {'body.targetclassName': 'or-requirement-title form-control'},
-                            {'body.targetclassName': 'or-requirement-title'},
-                            {'body.targetclassName': 'select-dropdown'}
-                        ]},
-                    ]
-                }
-            },
-            {
-                "$group": {
-                    "_id": {
-                        "projectId": "$body.projectId",
-                        "domElement": "$body.targetclassName"
-                    },
-                    "count": {
-                        "$sum": 1.0
-                    }
-                }
-            },
-            {
-                "$group": {
-                    "_id": "$_id.projectId",
-                    "changes": {
-                        "$push": {
-                            "k": "$_id.domElement",
-                            "v": "$count"
-                        }
-                    }
-                }
-            },
-            {
-                "$project": {
-                    "_id": 0.0,
-                    "projectId": "$_id",
-                    "changeCount": {
-                        "$arrayToObject": "$changes"
-                    }
-                }
-            }
-        ]
-        query_result = list(frontend_logs.aggregate(query))
-        print(query_result)
-        result = []
-        for item in query_result:
-            change_count = copy.deepcopy(default_count)
-            for k, v in item['changeCount'].items():
-                try:
-                    change_count[dom_element_mapping[k]] = v
-                except KeyError as e:
-                    raise e
-            item['changeCount'] = change_count
-            result.append(item)
-        response_body = json.dumps({'changes': result}, default=util.serialize)
-    except (data_access.ServerSelectionTimeoutError, data_access.NetworkTimeout, KeyError, Exception) as e:
-        http_status = 500
-        mimetype = 'application/json'
-        current_app.logger.error(f'Error: {e}')
-        response_body = json.dumps({'message': f'Something went wrong.'})
-    finally:
-        response = Response(response=response_body, status=http_status, mimetype=mimetype)
-        current_app.logger.debug(f'Responding with code: {http_status}')
-        return response
-
-
-@api.route('/changes/<project_id>', methods=['GET'])
-@auth.auth_single
-def changes_one_project_get(project_id):
+def changes_get(project_id):
     """
     Return for a given project the number of changes to the title, description or status per requirement.
     :param project_id: The project id.
@@ -239,11 +155,11 @@ def changes_one_project_get(project_id):
     mimetype = 'application/json'
     response_body = json.dumps({})
     try:
-        query = [
+        request_arguments = request.args
+        aggregation = [
             {
                 "$match": {
                     '$and': [
-                        {"body.projectId": project_id},
                         {'$or': [
                             {'body.type': 'blur'},
                             {'body.type': 'change'}
@@ -261,7 +177,6 @@ def changes_one_project_get(project_id):
             {
                 "$group": {
                     "_id": {
-                        "requirementId": "$body.requirementId",
                         "domElement": "$body.targetclassName"
                     },
                     "count": {
@@ -271,7 +186,6 @@ def changes_one_project_get(project_id):
             },
             {
                 "$group": {
-                    "_id": "$_id.requirementId",
                     "changes": {
                         "$push": {
                             "k": "$_id.domElement",
@@ -283,28 +197,39 @@ def changes_one_project_get(project_id):
             {
                 "$project": {
                     "_id": 0.0,
-                    "requirementId": "$_id",
                     "changeCount": {
                         "$arrayToObject": "$changes"
                     }
                 }
             }
         ]
-        query_result = list(frontend_logs.aggregate(query))
-        print(query_result)
+        if project_id:
+            # Add project Id to the match query
+            aggregation[0]['$match']['$and'].append({"body.projectId": project_id})
+            aggregation[1]['$group']['_id']['requirementId'] = '$body.requirementId'
+            aggregation[2]['$group']['_id'] = '$_id.requirementId'
+            aggregation[3]['$project']['requirementId'] = '$_id'
+        else:
+            aggregation[1]['$group']['_id']['projectId'] = '$body.projectId'
+            aggregation[2]['$group']['_id'] = '$_id.projectId'
+            aggregation[3]['$project']['projectId'] = '$_id'
+        if request_arguments:
+            try:
+                username = request.args.get('username')
+                # Add username to the match query
+                aggregation[0]['$match']['$and'].append({"body.username": username})
+            except KeyError:
+                pass
+        aggregation_result = list(frontend_logs.aggregate(aggregation))
         result = []
-        for item in query_result:
-            change_count = {}
+        for item in aggregation_result:
+            change_count = copy.deepcopy(default_count)
             for k, v in item['changeCount'].items():
-                change_count[dom_element_mapping[k]] = v
-            # Add zero values
-            for k in default_count.keys():
-                if k not in change_count:
-                    change_count[k] = 0
-            item['changeCount'] = {}
-            #  Sort by key
-            for k in sorted(change_count):
-                item['changeCount'][k] = change_count[k]
+                try:
+                    change_count[dom_element_mapping[k]] = v
+                except KeyError as e:
+                    raise e
+            item['changeCount'] = change_count
             result.append(item)
         response_body = json.dumps({'changes': result}, default=util.serialize)
     except (data_access.ServerSelectionTimeoutError, data_access.NetworkTimeout, Exception) as e:
