@@ -9,6 +9,7 @@ import os
 
 from flask import Blueprint, Response, current_app
 from pymongo.errors import ServerSelectionTimeoutError
+from bson import json_util
 
 from . import auth
 from . import data_access
@@ -75,6 +76,38 @@ def delete_documents(collection_name):
         query_result = db[collection_name].delete_many({})
         response_body = json.dumps(
             {'message': f'Removed {query_result.deleted_count} entries from {db.name} -- {collection_name}'})
+    except (data_access.ServerSelectionTimeoutError, data_access.NetworkTimeout, Exception) as e:
+        http_status = 500
+        mimetype = 'application/json'
+        current_app.logger.error(f'Error: {e}')
+        response_body = json.dumps({'message': f'Something went wrong.'})
+    finally:
+        response = Response(response=response_body, status=http_status, mimetype=mimetype)
+        current_app.logger.debug(f'Responding with code: {http_status}')
+        return response
+
+
+@api.route('/<collection_name>/export', methods=['GET'])
+@auth.auth_single
+def export_documents(collection_name):
+    """
+    Use with extreme caution as this will delete all documents in the frontend logging collection.
+    :param collection_name: The name of the collection to be cleaned out.
+    :return: HTTP Response
+    """
+    http_status = 200
+    mimetype = 'application/json'
+    response_body = json.dumps({})
+    try:
+        query_result = db[collection_name].find()
+        result = list(query_result)
+        # for d in result:
+        #     del d['_id']
+        response_body = json_util.dumps(
+            {'payload': result,
+             'message': f'Exported {query_result.count()} entries from {db.name} -- {collection_name}'
+             }
+        )
     except (data_access.ServerSelectionTimeoutError, data_access.NetworkTimeout, Exception) as e:
         http_status = 500
         mimetype = 'application/json'
