@@ -192,6 +192,9 @@ function addMetadata(event) {
     if (document.querySelector(".or-avatar")) {
         event['username'] = document.querySelector(".or-avatar").getAttribute("alt");
     }
+    if (document.querySelector('body').getAttribute('data-userid')){
+        event['userId'] = document.querySelector('body').getAttribute('data-userid');
+    }
     return event;
 }
 
