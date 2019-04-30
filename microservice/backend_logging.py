@@ -25,7 +25,7 @@ def __init_directories():
     Check if the backend log directory exists and is readable.
     :return: None
     """
-    back_end_log_dir = current_app.config['DIR_DEBUG_LOG']
+    back_end_log_dir = current_app.config['DIR_BACKEND_LOG']
     try:
         path = os.path.isdir(back_end_log_dir)
         if path:
