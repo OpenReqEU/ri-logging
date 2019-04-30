@@ -7,7 +7,7 @@ from logging.handlers import RotatingFileHandler
 from flask import Flask, Response, request
 from flask_cors import CORS
 
-from . import auth, util, frontend_logging, admin
+from . import auth, util, frontend_logging, backend_logging
 
 root_path = os.path.abspath(os.path.join(__file__, '..', '..'))
 
@@ -23,11 +23,11 @@ def create_app(config_file_name: str = 'config.json'):
 
     # Blueprint must be initialized with the CORS handler BEFORE the registration with the app
     CORS(frontend_logging.api)
-    CORS(admin.api)
+    CORS(backend_logging.api)
 
     # Register Blueprints after CORS initialization
     app.register_blueprint(frontend_logging.api)
-    app.register_blueprint(admin.api)
+    app.register_blueprint(backend_logging.api)
 
     # Init auth
     auth.init_auth(app.config['API_BEARER_TOKEN'])
