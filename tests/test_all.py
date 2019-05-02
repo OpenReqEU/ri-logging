@@ -5,10 +5,14 @@ author: Volodymyr Biryuk
 <module comment>
 """
 import os
+import re
 import unittest
+
+import requests
 
 import microservice
 from microservice import auth
+from dateutil import parser as datutil_parser
 
 
 class AuthTest(unittest.TestCase):
@@ -62,7 +66,7 @@ class FrontendBlueprintTest(unittest.TestCase):
             response = c.get(f'{self.url_base}/script')
             self.assertEqual(200, response.status_code)
 
-    def test_frontend_logging_get(self):
+    def test_frontend_log_get(self):
         # Test with auth
         bearer_token = ''
         with self.app.test_client() as c:
@@ -77,9 +81,9 @@ class FrontendBlueprintTest(unittest.TestCase):
             response = c.get(f'{self.url_base}/log', headers={'Authorization': f'Bearer {bearer_token}'})
             self.assertEqual(response.status_code, 200)
 
-    def test_frontend_logging_post(self):
+    def test_frontend_log_post(self):
         with self.app.test_client() as c:
-            response = c.post(f'{self.url_base}/log',)
+            response = c.post(f'{self.url_base}/log', )
             self.assertEqual(response.status_code, 400)
 
 
@@ -105,23 +109,9 @@ class BackendBlueprintTest(unittest.TestCase):
         os.environ['DEBUG'] = 'True'
         os.environ['LOGGING_LEVEL'] = 'INFO'
         cls.url_base = '/backend'
-        cls.app = microservice.create_app('config_test.json')
+        cls.app = microservice.create_app('config.json')
 
-    def test_init_script(self):
-        with self.app.test_client() as c:
-            response = c.get(f'{self.url_base}/')
-            self.assertEqual(response.status_code, 200)
-            print(response.data)
-
-    def test_frontend_script(self):
-        # Test with auth
-        bearer_token = ''
-        with self.app.test_client() as c:
-            response = c.get(f'{self.url_base}/script')
-            self.assertEqual(response.status_code, 200)
-            print(response.data)
-
-    def test_frontend_logging_get(self):
+    def test_backend_logging_get(self):
         # Test with auth
         bearer_token = ''
         with self.app.test_client() as c:
@@ -137,15 +127,6 @@ class BackendBlueprintTest(unittest.TestCase):
             self.assertEqual(response.status_code, 200)
             response = c.get(f'{self.url_base}/log/error.log.6.gz', headers={'Authorization': f'Bearer {bearer_token}'})
             self.assertEqual(response.status_code, 200)
-            print(response.data)
-
-    def test_frontend_logging_post(self):
-        # Test with auth
-        bearer_token = ''
-        with self.app.test_client() as c:
-            response = c.post(f'{self.url_base}/log')
-            self.assertEqual(response.status_code, 400)
-            print(response.data)
 
 
 if __name__ == '__main__':
