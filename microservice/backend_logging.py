@@ -4,28 +4,28 @@ author:     Volodymyr Biryuk
 
 This module provides the api blueprints for retrieving backend debug_logs.
 """
-import os
 import json
+import os
 import re
-
-from flask import Blueprint, current_app, request, Response
-from dateutil import parser as datutil_parser
 from datetime import datetime
-from pymongo.errors import ServerSelectionTimeoutError
-from pymongo.collection import Collection
 
-from . import auth, util, data_access
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
+from dateutil import parser as datutil_parser
+from flask import Blueprint, current_app, request, Response
+from pymongo.collection import Collection
+from pymongo.errors import ServerSelectionTimeoutError
+
+from microservice import auth, util, data_access
 
 api = Blueprint('backend_logging_api', __name__, url_prefix='/backend')
 
 backend_logs: Collection = None
 
+schedulers = {}
+
 
 def get_backend_log_path():
-    return current_app.config['DIR_BACKEND_LOG']
-
-
-def get_backend_log_collection():
     return current_app.config['DIR_BACKEND_LOG']
 
 
@@ -176,110 +176,163 @@ def log_get(log_name):
         return response
 
 
-@api.route('/import', methods=['GET'])
+@api.route('/scheduler/start', methods=['GET'])
 @auth.auth_single
-def log_entry_to_dict(log_entry: str):
+def start_scheduler_get():
     """
-    Convert a log entry (one line) of a NGINX log file to a python dict.
-    :param log_entry: One line of a NGINX log file.
-    :return: A pyhon dict representation of a log entry.
+    Start the log import scheduler. The scheduler has to be started manually with this REST call.
+    This implementation is a temporary workaround due to flask limitations using the app context.
+    :return: The HTTP response.
     """
 
-    def nginx_local_time_to_iso_date(nginx_date: str):
-        months = {'Jan': 0, 'Feb': 1, 'Mar': 2, 'Apr': 3, 'May': 4, 'Jun': 5, 'Jul': 6, 'Aug': 7, 'Sep': 8,
-                  'Oct': 9, 'Nov': 10, 'Dec': 11}
-        nginx_date = nginx_date.replace(' ', '')
-        split = nginx_date.split('/')
-        day = split[0]
-        month = months[split[1]]
-        split = split[2].split(':')
-        year = split[0]
-        hour = split[1]
-        minute = split[2]
-        split = split[3].split('+')
-        second = split[0]
-        timezone = f'{split[1][:-2]}:{split[1][2:]}'
-        iso_date = f'{year}-{month}-{day}T{hour}:{minute}:{second}+{timezone}'
-        return datutil_parser.parse(iso_date)
+    def log_entry_to_dict(log_entry: str):
+        """
+        Convert a default formatted log entry (one line) of a NGINX log file to a python dict.
+        :param log_entry: One line of a NGINX log file.
+        :return: A pyhon dict representation of a log entry.
+        """
 
-    def part0(line_split: str):
-        split = re.split(r'\[|\]', line_split)
-        remote_address_and_user = split[0].split(' ')
-        remote_addr = remote_address_and_user[0]
-        hyphen = remote_address_and_user[1]
-        remote_user = remote_address_and_user[2]
-        log_object['remoteAddr'] = remote_addr
-        log_object['remoteUser'] = remote_user
-        log_object['isoDate'] = nginx_local_time_to_iso_date(split[1])
+        def nginx_local_time_to_iso_date(nginx_date: str):
+            """
+            Convert the log timestamp to iso date.
+            :param nginx_date: The default Nginx formatted timestamp e.g. 29/Sep/2016:10:20:48 +0100.
+            :return: The iso date representation of the timestamp.
+            """
+            months = {'Jan': 0, 'Feb': 1, 'Mar': 2, 'Apr': 3, 'May': 4, 'Jun': 5, 'Jul': 6, 'Aug': 7, 'Sep': 8,
+                      'Oct': 9, 'Nov': 10, 'Dec': 11}
+            nginx_date = nginx_date.replace(' ', '')
+            split = nginx_date.split('/')
+            day = split[0]
+            month = months[split[1]]
+            split = split[2].split(':')
+            year = split[0]
+            hour = split[1]
+            minute = split[2]
+            split = split[3].split('+')
+            second = split[0]
+            timezone = f'{split[1][:-2]}:{split[1][2:]}'
+            iso_date = f'{year}-{month}-{day}T{hour}:{minute}:{second}+{timezone}'
+            return datutil_parser.parse(iso_date)
+
+        def part0(line_split: str):
+            split = re.split(r'\[|\]', line_split)
+            remote_address_and_user = split[0].split(' ')
+            remote_addr = remote_address_and_user[0]
+            hyphen = remote_address_and_user[1]
+            remote_user = remote_address_and_user[2]
+            log_object['remoteAddr'] = remote_addr
+            log_object['remoteUser'] = remote_user
+            log_object['isoDate'] = nginx_local_time_to_iso_date(split[1])
+            return None
+
+        def part1(split_line: str):
+            split1 = split_line.split(' ')
+            http_method = split1[0]
+            path = split1[1]
+            http_version = split1[2]
+            log_object['httpMethod'] = http_method
+            log_object['path'] = path
+            log_object['httpVersion'] = http_version
+            return None
+
+        def part2(split_line: str):
+            split = split_line.split(' ')
+            status = split[1]
+            body_bytes_sent = split[2]
+            log_object['status'] = status
+            log_object['bodyBytesSent'] = body_bytes_sent
+            return None
+
+        def part3(split_line: str):
+            log_object['httpReferer'] = split_line
+            return None
+
+        def part4(split_line: str):
+            log_object['httpUserAgent'] = split_line
+            return None
+
+        def part5(split_line: str):
+            log_object['httpXForwardedFor'] = split_line
+            return None
+
+        log_object = {}
+        split_line = log_entry.split('"')
+        split_line = [split for split in split_line if split != ' ']
+        part0(split_line[0])
+        part1(split_line[1])
+        part2(split_line[2])
+        part3(split_line[3])
+        part4(split_line[4])
+        part5(split_line[5])
+        return log_object
+
+    def import_log_to_db(file_name: str):
+        """
+        Import a Nginx log file into the backend log database.
+        :return:
+        """
+        log_dir = get_backend_log_path()
+        full_path = os.path.join(log_dir, file_name)
+        file_content = util.read_file(full_path)
+        log = file_content
+        lines = log.split('\n')
+        log_objects = []
+        now = datetime.now()
+        for line in lines:
+            log_object = log_entry_to_dict(line)
+            log_object['insertionTime'] = now
+            log_object['fileName'] = file_name
+            log_objects.append(log_object)
+        try:
+            current_app.logger.info(f'Inserting backend log into DB.')
+            backend_logs.insert_many(log_objects)
+        except (data_access.ServerSelectionTimeoutError, data_access.NetworkTimeout)as e:
+            current_app.logger.warning(e)
+            raise e
+        current_app.logger.info(f'Inserted {len(log_objects)}.')
         return None
 
-    def part1(split_line: str):
-        split1 = split_line.split(' ')
-        http_method = split1[0]
-        path = split1[1]
-        http_version = split1[2]
-        log_object['httpMethod'] = http_method
-        log_object['path'] = path
-        log_object['httpVersion'] = http_version
+    def import_logs_to_db():
+        """
+        Imports all gzipped access logs into the DB excluding already imported files and the current log file.
+        Only gzipped logs are imported as they are finalized.
+        :return: HTTP Response.
+        """
+        try:
+            files = os.listdir(get_backend_log_path())
+            # Match logs with names such as access.log-20190425.gz
+            files_in_dir = [file for file in files if re.match(r'access\.log-.+\.gz', file)]
+            files_in_db = backend_logs.distinct('fileName')
+            # Only keep files that are in the dir but not in the db
+            files_missing = [file for file in files_in_dir if file not in files_in_db]
+            file_count = len(files_missing)
+            current_app.logger.info(f'Inserting {file_count} files into db.')
+            for i, file in enumerate(files_missing):
+                current_app.logger.info(f'Inserting file {i + 1}/{file_count} into DB.')
+                import_log_to_db(file)
+        except (ServerSelectionTimeoutError, PermissionError, Exception)as e:
+            current_app.logger.error(f'OS error: {e}')
+            raise e
         return None
 
-    def part2(split_line: str):
-        split = split_line.split(' ')
-        status = split[1]
-        body_bytes_sent = split[2]
-        log_object['status'] = status
-        log_object['bodyBytesSent'] = body_bytes_sent
-        return None
-
-    def part3(split_line: str):
-        log_object['httpReferer'] = split_line
-        return None
-
-    def part4(split_line: str):
-        log_object['httpUserAgent'] = split_line
-        return None
-
-    def part5(split_line: str):
-        log_object['httpXForwardedFor'] = split_line
-        return None
-
-    log_object = {}
-    split_line = log_entry.split('"')
-    split_line = [split for split in split_line if split != ' ']
-    part0(split_line[0])
-    part1(split_line[1])
-    part2(split_line[2])
-    part3(split_line[3])
-    part4(split_line[4])
-    part5(split_line[5])
-    return log_object
-
-
-def import_log_to_db():
-    """
-    Import an NGINX log file into the backend log database.
-    :return:
-    """
-    log_dir = get_backend_log_path()
-    full_path = os.path.join(log_dir, 'access.log')
-    file_content = util.read_file(full_path)
-    log = file_content
-    lines = log.split('\n')
-    log_objects = []
-    now = datetime.now()
-    for line in lines:
-        log_object = log_entry_to_dict(line)
-        log_object['insertionTime'] = now
-        log_objects.append(log_object)
+    response_body = ''
+    content_type = 'application/json'
+    http_status = 200
     try:
-        current_app.logger.info(f'Inserting backend log into DB.')
-        backend_logs.insert_many(log_objects)
-    except (data_access.ServerSelectionTimeoutError, data_access.NetworkTimeout)as e:
-        current_app.logger.warning(e)
-    current_app.logger.info(f'Inserted {len(log_objects)}.')
-
-
-# TODO: Implement scheduler for log import
+        scheduler = BackgroundScheduler()
+        trigger = CronTrigger(hour=15, minute=10, timezone='Europe/Berlin')
+        scheduler.add_job(import_logs_to_db, trigger)
+        import_logs_to_db()
+        response_body = json.dumps({'message': 'Scheduler started'})
+    except (ServerSelectionTimeoutError, PermissionError, Exception)as e:
+        current_app.logger.error(f'OS error: {e}')
+        response_body = json.dumps({'message': 'Internal error.'})
+        content_type = 'application/json'
+        http_status = 500
+    finally:
+        response = Response(response=response_body, status=http_status, content_type=content_type)
+        current_app.logger.info(f'Responding with code: {http_status}')
+        return response
 
 
 if __name__ == '__main__':

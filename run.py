@@ -4,8 +4,6 @@ author:     Volodymyr Biryuk
 
 The module to run the micro service in the shell.
 """
-import os
-
 import microservice
 
 if __name__ == '__main__':
