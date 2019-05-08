@@ -7,7 +7,7 @@ This module provides functionality to access admin functions of the microservice
 import json
 import os
 
-from flask import Blueprint, Response, current_app
+from flask import Blueprint, Response, current_app, Flask
 from pymongo.errors import ServerSelectionTimeoutError
 from bson import json_util
 
@@ -18,12 +18,17 @@ api = Blueprint('admin_api', __name__, url_prefix='/admin')
 db = None
 
 
-@api.before_app_first_request
-def __init_api():
-    init_db_connection()
+@api.record_once
+def record_once(state):
+    """
+    Initialize all necessary components as soon as the Blueprint is registered with the app.
+    :param state: The state of the Flask app.
+    :return: None
+    """
+    __init_db_connection(state.app)
 
 
-def init_db_connection():
+def __init_db_connection(app_object: Flask):
     """
     Create a database connection before the first request reaches the designated function.
     The function initializes the db client regardless of whether the connection was successful.
@@ -31,9 +36,9 @@ def init_db_connection():
     :return: None
     """
     try:
-        current_app.logger.info(f'Initializing database connection.')
-        host = current_app.config['DB_HOST']
-        port = current_app.config['DB_PORT']
+        app_object.logger.info(f'Initializing database connection.')
+        host = app_object.config['DB_HOST']
+        port = app_object.config['DB_PORT']
         try:
             user = os.environ['DB_USER']
         except (KeyError, Exception):
@@ -42,8 +47,8 @@ def init_db_connection():
             password = os.environ['DB_PASSWORD']
         except (KeyError, Exception):
             password = ''
-        connect_timeout = current_app.config['DB_CONNECTION_TIMEOUT']
-        auth_mechanism = current_app.config['DB_AUTH_MECHANISM']
+        connect_timeout = app_object.config['DB_CONNECTION_TIMEOUT']
+        auth_mechanism = app_object.config['DB_AUTH_MECHANISM']
         global frontend_logs
         client = data_access.MongoDBConnection(
             host=host,
@@ -54,10 +59,10 @@ def init_db_connection():
             connect_timeout=connect_timeout
         ).client
         global db
-        db = client[current_app.config['DB_NAME_FRONTEND_LOGS']]
-        current_app.logger.info(f'Connected to database.')
+        db = client[app_object.config['DB_NAME_FRONTEND_LOGS']]
+        app_object.logger.info(f'Connected to database.')
     except ServerSelectionTimeoutError as e:
-        current_app.logger.error(f'Could not connect to database.')
+        app_object.logger.error(f'Could not connect to database.')
     return None
 
 
