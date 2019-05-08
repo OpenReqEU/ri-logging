@@ -26,17 +26,19 @@ def create_app(config_file_name: str = 'config.json'):
     CORS(backend_logging.api)
     CORS(admin.api)
 
-    # Add scheduler to Flask object and Start the scheduler.
+    # Init auth
+    auth.init_auth(app.config['API_BEARER_TOKEN'])
+
+    # Add scheduler to Flask object and Start the scheduler. Must be done before registering the Blueprints.
     app.scheduler = BackgroundScheduler()
+    app.logger.info(f'Initialized scheduler: {app.scheduler}')
     app.scheduler.start()
+    app.logger.info('Started scheduler.')
 
     # Register Blueprints after CORS initialization
     app.register_blueprint(frontend_logging.api)
     app.register_blueprint(backend_logging.api)
     app.register_blueprint(admin.api)
-
-    # Init auth
-    auth.init_auth(app.config['API_BEARER_TOKEN'])
 
     # Register generic error handlers
     @app.errorhandler(401)

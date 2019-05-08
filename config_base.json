@@ -12,5 +12,6 @@
   "DIR_DEBUG_LOG": "",
   "DIR_BACKEND_LOG": "",
   "DEBUG": "",
-  "LOGGING_LEVEL": ""
+  "LOGGING_LEVEL": "",
+  "BACKEND_LOG_SCHEDULE": ""
 }

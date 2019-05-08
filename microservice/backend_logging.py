@@ -105,8 +105,20 @@ def __init_db_connection(app_object: Flask):
 
 
 def __init_scheduler(app_object: Flask):
-    trigger = CronTrigger(hour=17, minute=3, timezone='Europe/Berlin')
+    """
+    Initialize the scheduled job for the backend og import into the DB.
+    :param app_object: The Flask app object.
+    :return: None
+    """
+    scheduled_time = app_object.config['BACKEND_LOG_SCHEDULE']
+    app_object.logger.info(f'Scheduled job for - {scheduled_time}')
+    scheduled_time = scheduled_time.split(':')
+    hour = scheduled_time[0]
+    minute = scheduled_time[1]
+    trigger = CronTrigger(hour=hour, minute=minute, timezone='Europe/Berlin')
     app_object.scheduler.add_job(import_logs_to_db, trigger=trigger, args=[app_object])
+    app_object.logger.info(f'Added job to scheduler.')
+    return None
 
 
 @api.route('/log', methods=['GET'])
@@ -294,6 +306,7 @@ def import_logs_to_db(app_object: Flask):
             raise e
         app_object.logger.info(f'Inserted {len(log_objects)}.')
         return None
+
     try:
         dir_path = app_object.config['DIR_BACKEND_LOG']
         files = os.listdir(dir_path)
