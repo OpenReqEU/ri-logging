@@ -11,7 +11,7 @@ import re
 from collections import Counter
 
 import dateutil.parser as dp
-from flask import Blueprint, Response, current_app, request
+from flask import Blueprint, Response, current_app, request, Flask
 from jsmin import jsmin
 from pymongo.collection import Collection
 from pymongo.errors import ServerSelectionTimeoutError
@@ -42,13 +42,20 @@ default_count = {
 }
 
 
-@api.before_app_first_request
-def __init_api():
-    init_db_connection()
-    init_script()
+@api.record_once
+def record_once(state):
+    """
+    Initialize all necessary components as soon as the Blueprint is registered with the app.
+    :param state: The state of the Flask app.
+    :return: None
+    """
+    app_object = state.app
+    init_db_connection(app_object)
+    init_script(app_object)
+    return None
 
 
-def init_db_connection():
+def init_db_connection(app_object: Flask):
     """
     Create a database connection before the first request reaches the designated function.
     The function initializes the db client regardless of whether the connection was successful.
@@ -56,9 +63,9 @@ def init_db_connection():
     :return: None
     """
     try:
-        current_app.logger.info(f'Initializing database connection.')
-        host = current_app.config['DB_HOST']
-        port = current_app.config['DB_PORT']
+        app_object.logger.info(f'Initializing database connection.')
+        host = app_object.config['DB_HOST']
+        port = app_object.config['DB_PORT']
         try:
             user = os.environ['DB_USER']
         except (KeyError, Exception):
@@ -67,8 +74,8 @@ def init_db_connection():
             password = os.environ['DB_PASSWORD']
         except (KeyError, Exception):
             password = ''
-        connect_timeout = current_app.config['DB_CONNECTION_TIMEOUT']
-        auth_mechanism = current_app.config['DB_AUTH_MECHANISM']
+        connect_timeout = app_object.config['DB_CONNECTION_TIMEOUT']
+        auth_mechanism = app_object.config['DB_AUTH_MECHANISM']
         global frontend_logs
         client = data_access.MongoDBConnection(
             host=host,
@@ -78,15 +85,15 @@ def init_db_connection():
             auth_mechanism=auth_mechanism,
             connect_timeout=connect_timeout
         ).client
-        db = client[current_app.config['DB_NAME_FRONTEND_LOGS']]
+        db = client[app_object.config['DB_NAME_FRONTEND_LOGS']]
         frontend_logs = db['log']
-        current_app.logger.info(f'Connected to database.')
+        app_object.logger.info(f'Connected to database.')
     except ServerSelectionTimeoutError as e:
-        current_app.logger.error(f'Could not connect to database.')
+        app_object.logger.error(f'Could not connect to database.')
     return None
 
 
-def init_script():
+def init_script(app_object: Flask):
     """
     Initialize the frontend logging script:
     1) Set the endpoint URL where the logs shall be sent.
@@ -98,7 +105,7 @@ def init_script():
         dirname = os.path.join(os.path.dirname(__file__), 'js')
         full_path = os.path.join(dirname, 'logger.js')
         file = util.read_file(full_path)
-        endpoint_url = current_app.config['API_URL']
+        endpoint_url = app_object.config['API_URL']
         file = re.sub(r'(const endpoint_url = "";)', f'const endpoint_url = "{endpoint_url}";', file)
         # Minify js file
         file = jsmin(file)
