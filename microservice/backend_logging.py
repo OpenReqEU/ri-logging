@@ -9,10 +9,9 @@ import os
 import re
 from datetime import datetime
 
-from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from dateutil import parser as datutil_parser
-from flask import Blueprint, current_app, request, Response
+from flask import Blueprint, current_app, request, Response, Flask
 from pymongo.collection import Collection
 from pymongo.errors import ServerSelectionTimeoutError
 
@@ -21,47 +20,53 @@ from microservice import auth, util, data_access
 api = Blueprint('backend_logging_api', __name__, url_prefix='/backend')
 
 backend_logs: Collection = None
-
-schedulers = {}
+back_end_log_dir: str = None
 
 
 def get_backend_log_path():
     return current_app.config['DIR_BACKEND_LOG']
 
 
-@api.before_app_first_request
-def __init_api():
-    __init_directories()
-    __init_db_connection()
+@api.record_once
+def record_once(state):
+    """
+    Initialize all necessary components as soon as the Blueprint is registered with the app.
+    :param state: The state of the Flask app.
+    :return: None
+    """
+    app_object = state.app
+    __init_db_connection(app_object)
+    __init_directories(app_object)
+    __init_scheduler(app_object)
     return None
 
 
-def __init_directories():
+def __init_directories(app_object: Flask):
     """
     Check if the backend log directory exists and is readable.
     :return: None
     """
     global back_end_log_dir
-    back_end_log_dir = get_backend_log_path()
+    back_end_log_dir = app_object.config['DIR_BACKEND_LOG']
     try:
         path = os.path.isdir(back_end_log_dir)
         if path:
-            current_app.logger.info(f'Backend log directory exists in {path}.')
+            app_object.logger.info(f'Backend log directory exists in {path}.')
         else:
-            current_app.logger.error('Backend log directory does not exists.')
+            app_object.logger.error('Backend log directory does not exists.')
     except PermissionError as e:
-        current_app.logger.error('Backend log directory Read permission denied.')
-        current_app.logger.debug(e)
+        app_object.logger.error('Backend log directory Read permission denied.')
+        app_object.logger.debug(e)
     try:
-        current_app.logger.debug('Backend log files:')
+        app_object.logger.debug('Backend log files:')
         for file in os.listdir(back_end_log_dir):
-            current_app.logger.debug(file)
+            app_object.logger.debug(file)
     except Exception as e:
-        current_app.logger.debug(e)
+        app_object.logger.debug(e)
     return None
 
 
-def __init_db_connection():
+def __init_db_connection(app_object: Flask):
     """
     Create a database connection before the first request reaches the designated function.
     The function initializes the db client regardless of whether the connection was successful.
@@ -69,9 +74,9 @@ def __init_db_connection():
     :return: None
     """
     try:
-        current_app.logger.info(f'Initializing database connection.')
-        host = current_app.config['DB_HOST']
-        port = current_app.config['DB_PORT']
+        app_object.logger.info(f'Initializing database connection.')
+        host = app_object.config['DB_HOST']
+        port = app_object.config['DB_PORT']
         try:
             user = os.environ['DB_USER']
         except (KeyError, Exception):
@@ -80,8 +85,8 @@ def __init_db_connection():
             password = os.environ['DB_PASSWORD']
         except (KeyError, Exception):
             password = ''
-        connect_timeout = current_app.config['DB_CONNECTION_TIMEOUT']
-        auth_mechanism = current_app.config['DB_AUTH_MECHANISM']
+        connect_timeout = app_object.config['DB_CONNECTION_TIMEOUT']
+        auth_mechanism = app_object.config['DB_AUTH_MECHANISM']
         global backend_logs
         client = data_access.MongoDBConnection(
             host=host,
@@ -91,12 +96,17 @@ def __init_db_connection():
             auth_mechanism=auth_mechanism,
             connect_timeout=connect_timeout
         ).client
-        db = client[current_app.config['DB_NAME_FRONTEND_LOGS']]
+        db = client[app_object.config['DB_NAME_FRONTEND_LOGS']]
         backend_logs = db['backend']
-        current_app.logger.info(f'Connected to database.')
+        app_object.logger.info(f'Connected to database.')
     except ServerSelectionTimeoutError as e:
-        current_app.logger.error(f'Could not connect to database.')
+        app_object.logger.error(f'Could not connect to database.')
     return None
+
+
+def __init_scheduler(app_object: Flask):
+    trigger = CronTrigger(hour=17, minute=3, timezone='Europe/Berlin')
+    app_object.scheduler.add_job(import_logs_to_db, trigger=trigger, args=[app_object])
 
 
 @api.route('/log', methods=['GET'])
@@ -108,9 +118,7 @@ def logs_get():
     :return: The filenames for all backend debug_logs as json.
     """
     current_app.logger.info(
-        f'Processing backend logfiles {request.method} '
-        f'request from remote address: {request.remote_addr}'
-    )
+        f'Processing backend log {request.method} request from remote address: {request.remote_addr}')
     response_body = ''
     content_type = 'application/json'
     http_status = 200
@@ -143,9 +151,7 @@ def log_get(log_name):
     :return: The filenames for all backend debug_logs as json.
     """
     current_app.logger.info(
-        f'Processing backend log {request.method} '
-        f'request from remote address: {request.remote_addr}'
-    )
+        f'Processing backend log {request.method} request from remote address: {request.remote_addr}')
     response_body = ''
     content_type = 'application/json'
     http_status = 200
@@ -176,13 +182,11 @@ def log_get(log_name):
         return response
 
 
-@api.route('/scheduler/start', methods=['GET'])
-@auth.auth_single
-def start_scheduler_get():
+def import_logs_to_db(app_object: Flask):
     """
-    Start the log import scheduler. The scheduler has to be started manually with this REST call.
-    This implementation is a temporary workaround due to flask limitations using the app context.
-    :return: The HTTP response.
+    Imports all gzipped access logs into the DB excluding already imported files and the current log file.
+    Only gzipped logs are imported as they are finalized.
+    :return: HTTP Response.
     """
 
     def log_entry_to_dict(log_entry: str):
@@ -266,13 +270,12 @@ def start_scheduler_get():
         part5(split_line[5])
         return log_object
 
-    def import_log_to_db(file_name: str):
+    def import_log_to_db(app_object: Flask, file_name: str):
         """
         Import a Nginx log file into the backend log database.
         :return:
         """
-        log_dir = get_backend_log_path()
-        full_path = os.path.join(log_dir, file_name)
+        full_path = os.path.join(back_end_log_dir, file_name)
         file_content = util.read_file(full_path)
         log = file_content
         lines = log.split('\n')
@@ -284,55 +287,30 @@ def start_scheduler_get():
             log_object['fileName'] = file_name
             log_objects.append(log_object)
         try:
-            current_app.logger.info(f'Inserting backend log into DB.')
+            app_object.logger.info(f'Inserting backend log into DB.')
             backend_logs.insert_many(log_objects)
         except (data_access.ServerSelectionTimeoutError, data_access.NetworkTimeout)as e:
-            current_app.logger.warning(e)
+            app_object.logger.warning(e)
             raise e
-        current_app.logger.info(f'Inserted {len(log_objects)}.')
+        app_object.logger.info(f'Inserted {len(log_objects)}.')
         return None
-
-    def import_logs_to_db():
-        """
-        Imports all gzipped access logs into the DB excluding already imported files and the current log file.
-        Only gzipped logs are imported as they are finalized.
-        :return: HTTP Response.
-        """
-        try:
-            files = os.listdir(get_backend_log_path())
-            # Match logs with names such as access.log-20190425.gz
-            files_in_dir = [file for file in files if re.match(r'access\.log-.+\.gz', file)]
-            files_in_db = backend_logs.distinct('fileName')
-            # Only keep files that are in the dir but not in the db
-            files_missing = [file for file in files_in_dir if file not in files_in_db]
-            file_count = len(files_missing)
-            current_app.logger.info(f'Inserting {file_count} files into db.')
-            for i, file in enumerate(files_missing):
-                current_app.logger.info(f'Inserting file {i + 1}/{file_count} into DB.')
-                import_log_to_db(file)
-        except (ServerSelectionTimeoutError, PermissionError, Exception)as e:
-            current_app.logger.error(f'OS error: {e}')
-            raise e
-        return None
-
-    response_body = ''
-    content_type = 'application/json'
-    http_status = 200
     try:
-        scheduler = BackgroundScheduler()
-        trigger = CronTrigger(hour=15, minute=10, timezone='Europe/Berlin')
-        scheduler.add_job(import_logs_to_db, trigger)
-        import_logs_to_db()
-        response_body = json.dumps({'message': 'Scheduler started'})
+        dir_path = app_object.config['DIR_BACKEND_LOG']
+        files = os.listdir(dir_path)
+        # Match logs with names such as access.log-20190425.gz
+        files_in_dir = [file for file in files if re.match(r'access\.log-.+\.gz', file)]
+        files_in_db = backend_logs.distinct('fileName')
+        # Only keep files that are in the dir but not in the db
+        files_missing = [file for file in files_in_dir if file not in files_in_db]
+        file_count = len(files_missing)
+        app_object.logger.info(f'Inserting {file_count} files into db.')
+        for i, file in enumerate(files_missing):
+            app_object.logger.info(f'Inserting file {i + 1}/{file_count} into DB.')
+            import_log_to_db(app_object, file)
     except (ServerSelectionTimeoutError, PermissionError, Exception)as e:
-        current_app.logger.error(f'OS error: {e}')
-        response_body = json.dumps({'message': 'Internal error.'})
-        content_type = 'application/json'
-        http_status = 500
-    finally:
-        response = Response(response=response_body, status=http_status, content_type=content_type)
-        current_app.logger.info(f'Responding with code: {http_status}')
-        return response
+        app_object.logger.error(f'OS error: {e}')
+        raise e
+    return None
 
 
 if __name__ == '__main__':
