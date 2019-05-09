@@ -288,7 +288,7 @@ def import_logs_to_db(app_object: Flask):
         :return:
         """
         full_path = os.path.join(back_end_log_dir, file_name)
-        file_content = util.read_file(full_path)
+        file_content = util.unzip(full_path).decode('utf-8')
         log = file_content
         lines = log.split('\n')
         log_objects = []
