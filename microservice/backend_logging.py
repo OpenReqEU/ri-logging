@@ -13,7 +13,7 @@ from apscheduler.triggers.cron import CronTrigger
 from dateutil import parser as datutil_parser
 from flask import Blueprint, current_app, request, Response, Flask
 from pymongo.collection import Collection
-from pymongo.errors import ServerSelectionTimeoutError
+from pymongo.errors import ServerSelectionTimeoutError, NetworkTimeout
 
 from microservice import auth, util, data_access
 
@@ -168,15 +168,23 @@ def log_get(log_name):
     content_type = 'application/json'
     http_status = 200
     try:
+        format = 'json'
+        try:
+            format = request.args.get('format')
+        except KeyError:
+            pass
         log_dir = get_backend_log_path()
         full_path = os.path.join(log_dir, log_name)
         if full_path.endswith('.gz'):
-            response_body = json.dumps({'log': util.unzip(full_path).decode('utf-8')})
-            print(response_body)
+            unzipped_file = util.unzip(full_path).decode('utf-8')
+            if format == 'text':
+                response_body = unzipped_file
+                content_type = 'text/plain'
+            else:
+                response_body = json.dumps({'log': unzipped_file})
         else:
             file_content = util.read_file(full_path)
             response_body = json.dumps({'log': file_content})
-        content_type = 'application/json'
         http_status = 200
     except (PermissionError, Exception)as e:
         current_app.logger.error(f'OS error: {e}')
@@ -200,7 +208,6 @@ def import_logs_to_db(app_object: Flask):
     Only gzipped logs are imported as they are finalized.
     :return: HTTP Response.
     """
-
     def log_entry_to_dict(log_entry: str):
         """
         Convert a default formatted log entry (one line) of a NGINX log file to a python dict.
@@ -294,15 +301,19 @@ def import_logs_to_db(app_object: Flask):
         log_objects = []
         now = datetime.now()
         for line in lines:
-            log_object = log_entry_to_dict(line)
-            log_object['insertionTime'] = now
-            log_object['fileName'] = file_name
-            log_objects.append(log_object)
+            try:
+                log_object = log_entry_to_dict(line)
+                log_object['insertionTime'] = now
+                log_object['fileName'] = file_name
+                log_objects.append(log_object)
+            except IndexError as e:
+                app_object.logger.warn(f'Error converting line: {line}')
         try:
             app_object.logger.info(f'Inserting backend log into DB.')
             backend_logs.insert_many(log_objects)
-        except (data_access.ServerSelectionTimeoutError, data_access.NetworkTimeout)as e:
-            app_object.logger.warning(e)
+        except (ServerSelectionTimeoutError, NetworkTimeout)as e:
+            app_object.logger.error(f'Database error: {e}')
+            app_object.logger.debug(e)
             raise e
         app_object.logger.info(f'Inserted {len(log_objects)}.')
         return None
@@ -316,13 +327,19 @@ def import_logs_to_db(app_object: Flask):
         # Only keep files that are in the dir but not in the db
         files_missing = [file for file in files_in_dir if file not in files_in_db]
         file_count = len(files_missing)
-        app_object.logger.info(f'Inserting {file_count} files into db.')
-        for i, file in enumerate(files_missing):
-            app_object.logger.info(f'Inserting file {i + 1}/{file_count} into DB.')
-            import_log_to_db(app_object, file)
-    except (ServerSelectionTimeoutError, PermissionError, Exception)as e:
-        app_object.logger.error(f'OS error: {e}')
-        raise e
+        if file_count > 0:
+            app_object.logger.info(f'Inserting {file_count} files into db.')
+            for i, file in enumerate(files_missing):
+                app_object.logger.info(f'Inserting file {i + 1}/{file_count} into DB.')
+                import_log_to_db(app_object, file)
+        else:
+            app_object.logger.info(f'No new log files detected.')
+    except (ServerSelectionTimeoutError, PermissionError)as e:
+        app_object.logger.error(f'Database error: {e}')
+        app_object.logger.debug(e)
+    except (Exception) as e:
+        app_object.logger.error(f'Unexpected error : {e}')
+        app_object.logger.debug(e)
     return None
 
 
