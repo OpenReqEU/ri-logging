@@ -250,12 +250,17 @@ def import_logs_to_db(app_object: Flask):
 
         def part1(split_line: str):
             split1 = split_line.split(' ')
-            http_method = split1[0]
-            path = split1[1]
-            http_version = split1[2]
-            log_object['httpMethod'] = http_method
-            log_object['path'] = path
-            log_object['httpVersion'] = http_version
+            log_object['httpMethod'] = ''
+            log_object['path'] = ''
+            log_object['httpVersion'] = ''
+            log_object['request'] = split_line
+            if len(split1) > 3:
+                http_method = split1[0]
+                path = split1[1]
+                http_version = split1[2]
+                log_object['httpMethod'] = http_method
+                log_object['path'] = path
+                log_object['httpVersion'] = http_version
             return None
 
         def part2(split_line: str):
@@ -279,14 +284,23 @@ def import_logs_to_db(app_object: Flask):
             return None
 
         log_object = {}
+        # if log_entry.startswith('61.219'):
+        #     print('aaa')
         split_line = log_entry.split('"')
         split_line = [split for split in split_line if split != ' ']
+
         part0(split_line[0])
+
         part1(split_line[1])
+
         part2(split_line[2])
+
         part3(split_line[3])
+
         part4(split_line[4])
+
         part5(split_line[5])
+
         return log_object
 
     def import_log_to_db(app_object: Flask, file_name: str):
@@ -301,13 +315,15 @@ def import_logs_to_db(app_object: Flask):
         log_objects = []
         now = datetime.now()
         for line in lines:
-            try:
-                log_object = log_entry_to_dict(line)
-                log_object['insertionTime'] = now
-                log_object['fileName'] = file_name
-                log_objects.append(log_object)
-            except IndexError as e:
-                app_object.logger.warn(f'Error converting line: {line}')
+            # Non empty lines only
+            if line:
+                try:
+                    log_object = log_entry_to_dict(line)
+                    log_object['insertionTime'] = now
+                    log_object['fileName'] = file_name
+                    log_objects.append(log_object)
+                except IndexError as e:
+                    app_object.logger.warn(f'Error converting line: {line}')
         try:
             app_object.logger.info(f'Inserting backend log into DB.')
             backend_logs.insert_many(log_objects)
