@@ -7,9 +7,9 @@ This module provides functionality to access admin functions of the microservice
 import json
 import os
 
+from bson import json_util
 from flask import Blueprint, Response, current_app, Flask
 from pymongo.errors import ServerSelectionTimeoutError
-from bson import json_util
 
 from . import auth
 from . import data_access
@@ -96,8 +96,8 @@ def delete_documents(collection_name):
 @auth.auth_single
 def export_documents(collection_name):
     """
-    Use with extreme caution as this will delete all documents in the frontend logging collection.
-    :param collection_name: The name of the collection to be cleaned out.
+    Export a collection from the database as json.
+    :param collection_name: The name of the collection to be exported.
     :return: HTTP Response
     """
     http_status = 200
@@ -105,14 +105,19 @@ def export_documents(collection_name):
     response_body = json.dumps({})
     try:
         query_result = db[collection_name].find()
-        result = list(query_result)
+        # result = list(query_result)
         # for d in result:
         #     del d['_id']
-        response_body = json_util.dumps(
-            {'payload': result,
-             'message': f'Exported {query_result.count()} entries from {db.name} -- {collection_name}'
-             }
-        )
+        # response_body = json_util.dumps(
+        #     {
+        #         'payload': result,
+        #         'message': f'Exported {query_result.count()} entries from {db.name} -- {collection_name}'
+        #     }
+        # )
+        response_body = ''
+        for item in query_result:
+            string_item = json_util.dumps(item)
+            response_body += string_item
     except (data_access.ServerSelectionTimeoutError, data_access.NetworkTimeout, Exception) as e:
         http_status = 500
         mimetype = 'application/json'
