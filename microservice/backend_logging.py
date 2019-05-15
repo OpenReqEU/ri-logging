@@ -254,7 +254,7 @@ def import_logs_to_db(app_object: Flask):
             log_object['path'] = ''
             log_object['httpVersion'] = ''
             log_object['request'] = split_line
-            if len(split1) > 3:
+            if len(split1) >= 3:
                 http_method = split1[0]
                 path = split1[1]
                 http_version = split1[2]
