@@ -315,7 +315,7 @@ def log_change_get():
         query = {}
         # Only query for blur and change events
         query['$and'] = [{'$or': [{'body.type': 'change'}, {'body.type': 'blur'}]}]
-        if username_ or from_ or to_ or project_id or requirement_id:
+        if username_ or from_ or to_ or project_id or requirement_id or user_id:
             if user_id:
                 sub_query = {'body.userId': user_id}
                 query['$and'].append(sub_query)
