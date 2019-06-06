@@ -1,5 +1,3 @@
-[run]
-omit = coverage-reports/*, demos/*, tests/*, venv/*, .gitignore, config_base.json, config.json, config_test.json, LICENCE, Dockerfile, README.md awsgger.yaml, requirements.txt
 [html]
 directory = coverage-reports
 [xml]
