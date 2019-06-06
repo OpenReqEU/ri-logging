@@ -3,6 +3,7 @@ flask_cors
 pymongo
 requests
 pytest
+pytest-cov
 jsmin
 connexion
 python-dateutil
