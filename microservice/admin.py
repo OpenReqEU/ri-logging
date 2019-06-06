@@ -67,7 +67,7 @@ def __init_db_connection(app_object: Flask):
 
 
 @api.route('/<collection_name>/remove', methods=['DELETE'])
-@auth.auth_single
+@auth.auth_admin
 def delete_documents(collection_name):
     """
     Use with extreme caution as this will delete all documents in the frontend logging collection.
@@ -93,7 +93,7 @@ def delete_documents(collection_name):
 
 
 @api.route('/<collection_name>/export', methods=['GET'])
-@auth.auth_single
+@auth.auth_admin
 def export_documents(collection_name):
     """
     Export a collection from the database as json.

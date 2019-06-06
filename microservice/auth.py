@@ -4,19 +4,24 @@ author:     Volodymyr Biryuk
 
 Authorization and Authentication module.
 """
-from functools import wraps
-from flask import request, Response
 import json
+from functools import wraps
 
-api_key = None
+from flask import request, Response
+
+auth_store = {
+    'user': None,
+    'admin': None
+}
 
 
-def init_auth(secret_key: str):
-    global api_key
-    api_key = secret_key
+def init_auth(user_key: str, admin_key: str):
+    global auth_store
+    auth_store['user'] = user_key
+    auth_store['admin'] = admin_key
 
 
-def bearer_token_auth(bearer_token):
+def bearer_token_auth(role: str, bearer_token: str):
     """
     Check the validity of the bearer token.
     :param bearer_token: The bearer token from the authentication header.
@@ -27,9 +32,9 @@ def bearer_token_auth(bearer_token):
         split = bearer_token.split(' ')
         bearer = split[0]
         token = split[1]
-        if bearer == 'Bearer' and token == api_key:
-            result = True
-    except AttributeError:
+        if bearer == 'Bearer':
+            result = token == auth_store[role]
+    except (AttributeError, KeyError):
         pass
     finally:
         return result
@@ -93,7 +98,24 @@ def auth_single(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         bearer_token = request.headers.get('Authorization')
-        if not bearer_token or not bearer_token_auth(bearer_token):
+        if not bearer_token or not bearer_token_auth('user', bearer_token):
+            return authenticate()
+        return f(*args, **kwargs)
+
+    return decorated
+
+
+def auth_admin(f):
+    """
+    Decorator function that to enable auth for API functions.
+    :param f: Must be empty in annotation.
+    :return: The auth result.
+    """
+
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        bearer_token = request.headers.get('Authorization')
+        if not bearer_token or not bearer_token_auth('admin', bearer_token):
             return authenticate()
         return f(*args, **kwargs)
 

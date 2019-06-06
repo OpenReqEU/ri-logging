@@ -27,7 +27,7 @@ def create_app(config_file_name: str = 'config.json'):
     CORS(admin.api)
 
     # Init auth
-    auth.init_auth(app.config['API_BEARER_TOKEN'])
+    auth.init_auth(app.config['USER_BEARER_TOKEN'], app.config['ADMIN_BEARER_TOKEN'])
 
     # Add scheduler to Flask object and Start the scheduler. Must be done before registering the Blueprints.
     app.scheduler = BackgroundScheduler()
