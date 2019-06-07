@@ -17,27 +17,84 @@ from dateutil import parser as datutil_parser
 
 class AuthTest(unittest.TestCase):
 
-    def test_bearer_auth(self):
-        # Test for None token
-        token = None
-        auth_result = auth.bearer_token_auth(token)
+    def test_bearer_auth_user(self):
+        # Auth service not initialized. Test for None token.
+        role = None
+        admin_token = None
+        user_token = None
+        given_token = None
+        auth.init_auth(user_token, admin_token)
+        auth_result = auth.bearer_token_auth(role, given_token)
         self.assertFalse(auth_result)
-        # Test for token without 'Bearer' keyword
-        token = '12345'
-        auth.init_auth(token)
-        auth_result = auth.bearer_token_auth(token)
+        # Test empty token
+        role = ''
+        user_token = ''
+        given_token = ''
+        auth.init_auth(user_token, admin_token)
+        auth_result = auth.bearer_token_auth(role, given_token)
+        self.assertFalse(auth_result)
+        # Test token without 'Bearer' keyword
+        role = 'user'
+        user_token = '12345'
+        given_token = '12345'
+        auth.init_auth(user_token, admin_token)
+        auth_result = auth.bearer_token_auth(role, given_token)
         self.assertFalse(auth_result)
         # Test for invalid token
-        token = 'Bearer 12346'
-        auth_result = auth.bearer_token_auth(token)
+        role = 'user'
+        user_token = '12346'
+        given_token = 'Bearer 12345'
+        auth.init_auth(user_token, admin_token)
+        auth_result = auth.bearer_token_auth(role, given_token)
         self.assertFalse(auth_result)
         # Test for valid token
-        token = 'Bearer 12345'
-        auth_result = auth.bearer_token_auth(token)
+        role = 'user'
+        user_token = '12345'
+        given_token = 'Bearer 12345'
+        auth.init_auth(user_token, admin_token)
+        auth_result = auth.bearer_token_auth(role, given_token)
+        self.assertTrue(auth_result)
+
+    def test_bearer_auth_admin(self):
+        # Auth service not initialized. Test for None token.
+        role = None
+        admin_token = None
+        user_token = None
+        given_token = None
+        auth.init_auth(user_token, admin_token)
+        auth_result = auth.bearer_token_auth(role, given_token)
+        self.assertFalse(auth_result)
+        # Test empty token
+        role = ''
+        user_token = ''
+        given_token = ''
+        auth.init_auth(user_token, admin_token)
+        auth_result = auth.bearer_token_auth(role, given_token)
+        self.assertFalse(auth_result)
+        # Test token without 'Bearer' keyword
+        role = 'admin'
+        user_token = '12345'
+        given_token = '12345'
+        auth.init_auth(user_token, admin_token)
+        auth_result = auth.bearer_token_auth(role, given_token)
+        self.assertFalse(auth_result)
+        # Test for invalid token
+        role = 'admin'
+        user_token = '12346'
+        given_token = 'Bearer 12345'
+        auth.init_auth(user_token, admin_token)
+        auth_result = auth.bearer_token_auth(role, given_token)
+        self.assertFalse(auth_result)
+        # Test for valid token
+        role = 'admin'
+        user_token = '12345'
+        given_token = 'Bearer 12345'
+        auth.init_auth(user_token, admin_token)
+        auth_result = auth.bearer_token_auth(role, given_token)
         self.assertTrue(auth_result)
 
 
-class FrontendBlueprintTest(unittest.TestCase):
+class FrontendAPITest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         try:
@@ -87,7 +144,7 @@ class FrontendBlueprintTest(unittest.TestCase):
             self.assertEqual(response.status_code, 400)
 
 
-class BackendBlueprintTest(unittest.TestCase):
+class BackendAPITest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         try:
