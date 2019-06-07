@@ -8,4 +8,4 @@ import microservice
 
 if __name__ == '__main__':
     app = microservice.create_app()
-    app.run(host='0.0.0.0', port=9798)
+    app.run(host=app.config['MS_HOST'], port=9798)

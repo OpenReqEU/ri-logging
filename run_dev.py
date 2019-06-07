@@ -14,6 +14,7 @@ if __name__ == '__main__':
         os.remove('config.json')
     except FileNotFoundError:
         pass
+    os.environ['MS_HOST'] = ''
     os.environ['DB_HOST'] = ''
     os.environ['DB_PORT'] = ''
     os.environ['DB_AUTH_MECHANISM'] = ''
@@ -24,12 +25,14 @@ if __name__ == '__main__':
     os.environ['DB_CONNECTION_TIMEOUT'] = ''
 
     os.environ['API_URL'] = ''
-    os.environ['API_BEARER_TOKEN'] = ''
+    os.environ['USER_BEARER_TOKEN'] = ''
+    os.environ['ADMIN_BEARER_TOKEN'] = ''
     os.environ['DIR_DEBUG_LOG'] = ''
     os.environ['DIR_BACKEND_LOG'] = ''
+    os.environ['BACKEND_LOG_SCHEDULE'] = ''
 
-    os.environ['DEBUG'] = 'True'
-    os.environ['LOGGING_LEVEL'] = 'INFO'
+    os.environ['DEBUG'] = ''
+    os.environ['LOGGING_LEVEL'] = ''
 
     app = microservice.create_app()
-    app.run(host='0.0.0.0', port=9798)
+    app.run(host=app.config['MS_HOST'], port=9798)
