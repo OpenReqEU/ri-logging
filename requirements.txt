@@ -1,10 +1,12 @@
+apscheduler
+connexion
 flask
 flask_cors
+jsmin
+mongomock
 pymongo
-requests
 pytest
 pytest-cov
-jsmin
-connexion
 python-dateutil
-apscheduler
+pytest-mongodb
+requests
