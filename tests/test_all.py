@@ -4,17 +4,13 @@ author: Volodymyr Biryuk
 
 <module comment>
 """
+import datetime
 import os
-import sys
-import unittest
 import tempfile
-
-import requests
+import unittest
 
 import microservice
-from microservice import auth, util
-from dateutil import parser as datutil_parser
-import datetime
+from microservice import admin, auth, util
 
 
 class AuthTest(unittest.TestCase):
@@ -96,29 +92,41 @@ class AuthTest(unittest.TestCase):
         self.assertTrue(auth_result)
 
 
-class FrontendAPITest(unittest.TestCase):
+class APITest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        cls.user_bearer_token = '12345'
+        cls.admin_bearer_token = '54321'
         try:
-            os.remove('config_test.json')
+            os.remove('config.json')
         except FileNotFoundError:
             pass
+        os.environ['MS_HOST'] = '0.0.0.0'
+        os.environ['MS_PORT'] = '9798'
         os.environ['DB_HOST'] = '0.0.0.0'
         os.environ['DB_PORT'] = '27017'
         os.environ['DB_AUTH_MECHANISM'] = ''
         os.environ['DB_AUTH_SOURCE'] = ''
-        os.environ['DB_NAME_FRONTEND_LOGS'] = ''
+        os.environ['DB_NAME_FRONTEND_LOGS'] = 'riLoggingTest'
         os.environ['DB_USER'] = ''
         os.environ['DB_PASSWORD'] = ''
-        os.environ['DB_CONNECTION_TIMEOUT'] = '5000'
-        os.environ['API_URL'] = 'http://localhost:9798/frontend/log'
-        os.environ['API_BEARER_TOKEN'] = '12345'
-        os.environ['DIR_DEBUG_LOG'] = ''
-        os.environ['DIR_BACKEND_LOG'] = ''
+        os.environ['DB_CONNECTION_TIMEOUT'] = '3000'
+
+        os.environ['API_URL'] = '0.0.0.0:9798/frontend/log'
+        os.environ['USER_BEARER_TOKEN'] = cls.user_bearer_token
+        os.environ['ADMIN_BEARER_TOKEN'] = cls.admin_bearer_token
+        os.environ['DIR_DEBUG_LOG'] = '~/Desktop'
+        os.environ['DIR_BACKEND_LOG'] = '~/Desktop'
+        os.environ['BACKEND_LOG_SCHEDULE'] = '18:00'
+
         os.environ['DEBUG'] = 'True'
-        os.environ['LOGGING_LEVEL'] = 'INFO'
-        cls.url_base = '/frontend'
+        os.environ['LOGGING_LEVEL'] = 'DEBUG'
         cls.app = microservice.create_app('config_test.json')
+
+
+class FrontendAPITest(APITest):
+    def setUp(self):
+        self.url_base = '/frontend'
 
     def test_frontend_script(self):
         with self.app.test_client() as c:
@@ -126,19 +134,48 @@ class FrontendAPITest(unittest.TestCase):
             self.assertEqual(200, response.status_code)
 
     def test_frontend_log_get(self):
-        # Test with auth
-        bearer_token = ''
         with self.app.test_client() as c:
             response = c.get(f'{self.url_base}/log')
             self.assertEqual(response.status_code, 401)
-            response = c.get(f'{self.url_base}/log', headers={'Authorization': f'Bearer {bearer_token}'})
+            given_token = 'invalid token'
+            response = c.get(f'{self.url_base}/log', headers={'Authorization': f'Bearer {given_token}'})
             self.assertEqual(response.status_code, 401)
-            bearer_token = '7kyT5sGL8d5ax6qHJU32L4CJ'
-            response = c.get(f'{self.url_base}/log', headers={'Authorization': f'Bearer {bearer_token}'})
+            response = c.get(f'{self.url_base}/log', headers={'Authorization': f'Bearer {self.user_bearer_token}'})
+            self.assertEqual(response.status_code, 500)
+
+    def test_frontend_log_change_get(self):
+        with self.app.test_client() as c:
+            response = c.get(f'{self.url_base}/log/change')
             self.assertEqual(response.status_code, 401)
-            bearer_token = '12345'
-            response = c.get(f'{self.url_base}/log', headers={'Authorization': f'Bearer {bearer_token}'})
-            self.assertEqual(response.status_code, 200)
+            given_token = 'invalid token'
+            response = c.get(f'{self.url_base}/log/change', headers={'Authorization': f'Bearer {given_token}'})
+            self.assertEqual(response.status_code, 401)
+            response = c.get(f'{self.url_base}/log/change', headers={'Authorization': f'Bearer {self.user_bearer_token}'})
+            self.assertEqual(response.status_code, 500)
+
+    def test_frontend_change_get(self):
+        with self.app.test_client() as c:
+            response = c.get(f'{self.url_base}/change')
+            self.assertEqual(response.status_code, 401)
+            given_token = 'invalid token'
+            response = c.get(f'{self.url_base}/change', headers={'Authorization': f'Bearer {given_token}'})
+            self.assertEqual(response.status_code, 401)
+            response = c.get(f'{self.url_base}/change', headers={'Authorization': f'Bearer {self.user_bearer_token}'})
+            self.assertEqual(response.status_code, 500)
+
+    def test_frontend_log_porject_get(self):
+        with self.app.test_client() as c:
+            project_id = 'test'
+            response = c.get(f'{self.url_base}/log/{project_id}')
+            self.assertEqual(response.status_code, 401)
+            requirement_id = 'test'
+            response = c.get(f'{self.url_base}/log/{project_id}/{requirement_id}')
+            self.assertEqual(response.status_code, 401)
+            given_token = 'invalid token'
+            response = c.get(f'{self.url_base}/log/{project_id}', headers={'Authorization': f'Bearer {given_token}'})
+            self.assertEqual(response.status_code, 401)
+            response = c.get(f'{self.url_base}/log/{project_id}/{requirement_id}', headers={'Authorization': f'Bearer {self.user_bearer_token}'})
+            self.assertEqual(response.status_code, 500)
 
     def test_frontend_log_post(self):
         with self.app.test_client() as c:
@@ -146,52 +183,19 @@ class FrontendAPITest(unittest.TestCase):
             self.assertEqual(response.status_code, 400)
 
 
-class BackendAPITest(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        try:
-            os.remove('config_test.json')
-        except FileNotFoundError:
-            pass
-        os.environ['DB_HOST'] = '0.0.0.0'
-        os.environ['DB_PORT'] = '27017'
-        os.environ['DB_AUTH_MECHANISM'] = ''
-        os.environ['DB_AUTH_SOURCE'] = ''
-        os.environ['DB_NAME_FRONTEND_LOGS'] = ''
-        os.environ['DB_USER'] = ''
-        os.environ['DB_PASSWORD'] = ''
-        os.environ['DB_CONNECTION_TIMEOUT'] = '5000'
-        os.environ['API_URL'] = 'http://localhost:9798/frontend/log'
-        os.environ['API_BEARER_TOKEN'] = '12345'
-        os.environ['DIR_DEBUG_LOG'] = ''
-        os.environ['DIR_BACKEND_LOG'] = ''
-        os.environ['DEBUG'] = 'True'
-        os.environ['LOGGING_LEVEL'] = 'INFO'
-        cls.url_base = '/backend'
-        cls.app = microservice.create_app('config.json')
+class BackendAPITest(APITest):
+    def setUp(self):
+        self.url_base = '/backend'
 
     def test_backend_logging_get(self):
-        # Test with auth
-        bearer_token = ''
         with self.app.test_client() as c:
             response = c.get(f'{self.url_base}/log')
             self.assertEqual(response.status_code, 401)
-            response = c.get(f'{self.url_base}/log', headers={'Authorization': f'Bearer {bearer_token}'})
-            self.assertEqual(response.status_code, 401)
-            bearer_token = '7kyT5sGL8d5ax6qHJU32L4CJ'
-            response = c.get(f'{self.url_base}/log', headers={'Authorization': f'Bearer {bearer_token}'})
-            self.assertEqual(response.status_code, 401)
-            bearer_token = '12345'
-            response = c.get(f'{self.url_base}/log', headers={'Authorization': f'Bearer {bearer_token}'})
-            self.assertEqual(response.status_code, 200)
-            response = c.get(f'{self.url_base}/log/error.log.6.gz', headers={'Authorization': f'Bearer {bearer_token}'})
-            self.assertEqual(response.status_code, 200)
 
 
 class UtilTest(unittest.TestCase):
-
     def setUp(self):
-        self.test_dir = tempfile.mkdtemp()
+        self.test_dir = tempfile.TemporaryDirectory()
 
     def test_serialize_datetime(self):
         now = datetime.datetime.now()
@@ -200,8 +204,8 @@ class UtilTest(unittest.TestCase):
 
     def test_read_write(self):
         # Create temporary diractory write and read files from it and delet it.
-        with tempfile.TemporaryDirectory() as tmpdirname:
-            full_path = os.path.join(tmpdirname, 'test_file')
+        with self.test_dir:
+            full_path = os.path.join(self.test_dir.name, 'test_file')
             util.write_file(full_path, 'Hello World!')
             file_on_disk = util.read_file(full_path)
             self.assertEqual('Hello World!', file_on_disk)
@@ -226,7 +230,7 @@ class UtilTest(unittest.TestCase):
                 pass
             # Test the exception for missing file
             try:
-                full_path = os.path.join(tmpdirname, 'test_file')
+                full_path = os.path.join(self.test_dir.name, 'test_file')
                 util.write_file(full_path, None)
                 self.fail('No exception or wrong exception was raised.')
             except TypeError:
@@ -234,14 +238,25 @@ class UtilTest(unittest.TestCase):
 
     def test_unzip(self):
         # Create temporary directory zip and unzip files from it and delete it.
-        with tempfile.TemporaryDirectory() as tmpdirname:
-            full_path = os.path.join(tmpdirname, 'test_file.zip')
+        with self.test_dir:
+            full_path = os.path.join(self.test_dir.name, 'test_file.zip')
             util.write_file(full_path, 'Hello World!')
             try:
                 util.unzip(full_path)
                 self.fail('No exception or wrong exception was raised.')
             except OSError:
                 pass
+
+
+class AdminAPITest(APITest):
+    def setUp(self):
+        self.url_base = '/admin'
+
+    def test_export_collections(self):
+        with self.app.test_client() as c:
+            response = c.get(f'{self.url_base}/test/export')
+            self.assertEqual(response.status_code, 401)
+
 
 
 if __name__ == '__main__':
