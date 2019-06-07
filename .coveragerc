@@ -1,3 +1,6 @@
+
+[run]
+omit=microservice/jsobf.py
 [html]
 directory = coverage-reports
 [xml]
