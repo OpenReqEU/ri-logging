@@ -35,4 +35,4 @@ if __name__ == '__main__':
     os.environ['LOGGING_LEVEL'] = ''
 
     app = microservice.create_app()
-    app.run(host=app.config['MS_HOST'], port=9798)
+    app.run(host=app.config['MS_HOST'], port=int(app.config['MS_PORT']))
