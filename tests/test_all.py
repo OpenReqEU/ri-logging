@@ -5,14 +5,16 @@ author: Volodymyr Biryuk
 <module comment>
 """
 import os
-import re
+import sys
 import unittest
+import tempfile
 
 import requests
 
 import microservice
-from microservice import auth
+from microservice import auth, util
 from dateutil import parser as datutil_parser
+import datetime
 
 
 class AuthTest(unittest.TestCase):
@@ -184,6 +186,62 @@ class BackendAPITest(unittest.TestCase):
             self.assertEqual(response.status_code, 200)
             response = c.get(f'{self.url_base}/log/error.log.6.gz', headers={'Authorization': f'Bearer {bearer_token}'})
             self.assertEqual(response.status_code, 200)
+
+
+class UtilTest(unittest.TestCase):
+
+    def setUp(self):
+        self.test_dir = tempfile.mkdtemp()
+
+    def test_serialize_datetime(self):
+        now = datetime.datetime.now()
+        serialized = util.serialize(now)
+        self.assertEqual(now.__str__(), serialized)
+
+    def test_read_write(self):
+        # Create temporary diractory write and read files from it and delet it.
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            full_path = os.path.join(tmpdirname, 'test_file')
+            util.write_file(full_path, 'Hello World!')
+            file_on_disk = util.read_file(full_path)
+            self.assertEqual('Hello World!', file_on_disk)
+            self.assertNotEqual('Hallo Welt!', file_on_disk)
+            # Test the exception
+            try:
+                file_on_disk = util.read_file('')
+                self.fail('The exception failed to raise.')
+            except FileNotFoundError:
+                pass
+            # Test exception for empty path.
+            try:
+                util.write_file('', 'Hello World!')
+                self.fail('No exception or wrong exception was raised.')
+            except FileNotFoundError:
+                pass
+            # Test exception for missing path.
+            try:
+                util.write_file(None, 'Hello World!')
+                self.fail('No exception or wrong exception was raised.')
+            except TypeError:
+                pass
+            # Test the exception for missing file
+            try:
+                full_path = os.path.join(tmpdirname, 'test_file')
+                util.write_file(full_path, None)
+                self.fail('No exception or wrong exception was raised.')
+            except TypeError:
+                pass
+
+    def test_unzip(self):
+        # Create temporary directory zip and unzip files from it and delete it.
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            full_path = os.path.join(tmpdirname, 'test_file.zip')
+            util.write_file(full_path, 'Hello World!')
+            try:
+                util.unzip(full_path)
+                self.fail('No exception or wrong exception was raised.')
+            except OSError:
+                pass
 
 
 if __name__ == '__main__':
