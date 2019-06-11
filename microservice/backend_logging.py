@@ -208,6 +208,7 @@ def import_logs_to_db(app_object: Flask):
     Only gzipped logs are imported as they are finalized.
     :return: HTTP Response.
     """
+
     def log_entry_to_dict(log_entry: str):
         """
         Convert a default formatted log entry (one line) of a NGINX log file to a python dict.
@@ -357,6 +358,48 @@ def import_logs_to_db(app_object: Flask):
         app_object.logger.error(f'Unexpected error : {e}')
         app_object.logger.debug(e)
     return None
+
+
+class NginxLogParser():
+    def __init__(self):
+        self.regex_pattern = re.compile(r'''
+    (?P<ip>(^((?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?))|(?:(?:[0-9A-Fa-f]{1,4}:){6}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))|::(?:[0-9A-Fa-f]{1,4}:){5}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))|(?:[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:){4}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))|(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:){3}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))|(?:(?:[0-9A-Fa-f]{1,4}:){,2}[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:){2}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))|(?:(?:[0-9A-Fa-f]{1,4}:){,3}[0-9A-Fa-f]{1,4})?::[0-9A-Fa-f]{1,4}:(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))|(?:(?:[0-9A-Fa-f]{1,4}:){,4}[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))|(?:(?:[0-9A-Fa-f]{1,4}:){,5}[0-9A-Fa-f]{1,4})?::[0-9A-Fa-f]{1,4}|(?:(?:[0-9A-Fa-f]{1,4}:){,6}[0-9A-Fa-f]{1,4})?::)))
+    \s-\s(?P<remoteUser>((([a-zA-Z0-9]){40})|-))  # remote user (hyphen if no userId)
+    \s\[(?P<dateTime>(\d{2}\/[a-zA-Z]{3}\/\d{4}:\d{2}:\d{2}:\d{2}\s(\+|\-)\d{4}))\] # Datetime
+    \s"(?P<request>((GET|HEAD|POST|PUT|DELETE|CONNECT|OPTIONS|TRACE|PATCH)\s\/(.+)?\sHTTP\/\d\.\d))" # The HTTTP Request
+    \s(?P<request_time>(\d+\.\d+)) # Full request time, starting when NGINX reads the first byte from the client and ending when NGINX sends the last byte of the response body.
+    \s(?P<upstream_response_time>((\d+\.\d{3},?)(\s\d+\.\d{3})?|-)) #  Time between establishing a connection to an upstream server and receiving the last byte of the response body.
+    \s(?P<status>(\d{3})) # HTTP status code.
+    \s(?P<body_bytes_sent>(\d+)) # The size of the request.
+    \s"(?P<http_referer>(.+))" # The url where the request is coming from.
+    \s"(?P<http_user_agent>(.+))" # The user agent where the request comes from
+    \s"(?P<gzip_ratio>(.+))" # Whatever that is
+    ''', re.VERBOSE)
+
+    def parse_logfile(self, full_path: str):
+        f = util.read_file(full_path)
+        lines = f.split('\n')
+        for i, line in enumerate(lines, 1):
+            m = self.regex_pattern.match(line)
+            try:
+                groups = {
+                    'ip': '',
+                    'remoteUser': '',
+                    'dateTime': '',
+                    'request': '',
+                    'request_time': '',
+                    'upstream_response_time': '',
+                    'status': '',
+                    'body_bytes_sent': '',
+                    'http_referer': '',
+                    'http_user_agent': '',
+                    'gzip_ratio': '',
+                }
+                for key in groups.keys():
+                    groups[key] = m.group(key)
+                print(groups)
+            except AttributeError:
+                print(f'FAILURE: {line}')
 
 
 if __name__ == '__main__':
