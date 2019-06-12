@@ -9,8 +9,10 @@ import os
 import tempfile
 import unittest
 
+from dateutil.tz import tzutc
+
 import microservice
-from microservice import admin, auth, util
+from microservice import auth, util, backend_logging
 
 
 class AuthTest(unittest.TestCase):
@@ -150,7 +152,8 @@ class FrontendAPITest(APITest):
             given_token = 'invalid token'
             response = c.get(f'{self.url_base}/log/change', headers={'Authorization': f'Bearer {given_token}'})
             self.assertEqual(response.status_code, 401)
-            response = c.get(f'{self.url_base}/log/change', headers={'Authorization': f'Bearer {self.user_bearer_token}'})
+            response = c.get(f'{self.url_base}/log/change',
+                             headers={'Authorization': f'Bearer {self.user_bearer_token}'})
             self.assertEqual(response.status_code, 500)
 
     def test_frontend_change_get(self):
@@ -174,7 +177,8 @@ class FrontendAPITest(APITest):
             given_token = 'invalid token'
             response = c.get(f'{self.url_base}/log/{project_id}', headers={'Authorization': f'Bearer {given_token}'})
             self.assertEqual(response.status_code, 401)
-            response = c.get(f'{self.url_base}/log/{project_id}/{requirement_id}', headers={'Authorization': f'Bearer {self.user_bearer_token}'})
+            response = c.get(f'{self.url_base}/log/{project_id}/{requirement_id}',
+                             headers={'Authorization': f'Bearer {self.user_bearer_token}'})
             self.assertEqual(response.status_code, 500)
 
     def test_frontend_log_post(self):
@@ -257,6 +261,128 @@ class AdminAPITest(APITest):
             response = c.get(f'{self.url_base}/test/export')
             self.assertEqual(response.status_code, 401)
 
+
+class NginxLogConverterTest(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.nlc = backend_logging.NginxLogConverter()
+
+    def test_convert_local_time_to_iso_date(self):
+        time_local_string = '11/Jun/2019:08:41:02 +0000'
+        iso_date_expected = datetime.datetime(2019, 6, 11, 8, 41, 2, tzinfo=tzutc())
+        iso_date_given = self.nlc._time_local_to_iso_date(time_local_string)
+        self.assertEqual(iso_date_expected, iso_date_given)
+
+    def test_split_request(self):
+        request_string = 'GET /requirements-classifier/ HTTP/2.0'
+        split_request_expected = {'httpMethod': 'GET', 'path': '/requirements-classifier/', 'protocol': 'HTTP/2.0'}
+        split_request_given = self.nlc._split_request(request_string)
+        self.assertEqual(split_request_expected, split_request_given)
+
+        request_string = 'GET /eclipse/plugins/io.projectreactor.netty.reactor-netty_0.8.6.RELEASE.jar HTTP/1.1'
+        split_request_expected = {'httpMethod': 'GET',
+                                  'path': '/eclipse/plugins/io.projectreactor.netty.reactor-netty_0.8.6.RELEASE.jar',
+                                  'protocol': 'HTTP/1.1'}
+        split_request_given = self.nlc._split_request(request_string)
+        self.assertEqual(split_request_expected, split_request_given)
+
+        request_string = 'HEAD /eclipse/artifacts.xml.xz HTTP/1.1'
+        split_request_expected = {'httpMethod': 'HEAD', 'path': '/eclipse/artifacts.xml.xz', 'protocol': 'HTTP/1.1'}
+        split_request_given = self.nlc._split_request(request_string)
+        self.assertEqual(split_request_expected, split_request_given)
+
+        request_string = 'GET /registry/robots.txt HTTP/1.0'
+        split_request_expected = {'httpMethod': 'GET', 'path': '/registry/robots.txt', 'protocol': 'HTTP/1.0'}
+        split_request_given = self.nlc._split_request(request_string)
+        self.assertEqual(split_request_expected, split_request_given)
+
+        request_string = 'GET / HTTP/1.0'
+        split_request_expected = {'httpMethod': 'GET', 'path': '/', 'protocol': 'HTTP/1.0'}
+        split_request_given = self.nlc._split_request(request_string)
+        self.assertEqual(split_request_expected, split_request_given)
+
+    def test_log_entry_to_log_object(self):
+        log_entry = '217.172.12.199 - 3346c17ac8a179541c7c13654202816866d44377 [11/Jun/2019:05:28:00 +0000] "GET /sonarqube/api/rules/search.protobuf?f=repo,name,severity,lang,internalKey,templateKey,params,actives,createdAt,updatedAt&activation=true&qprofile=AWjcRabH3KB239lnMkuI&p=1&ps=500 HTTP/1.1" 0.015 0.015 200 7603 "-" "ScannerCli/3.3.0.1492" "-"'
+        expected_log_object = {
+            'remote_address': '217.172.12.199',
+            'remote_user': '3346c17ac8a179541c7c13654202816866d44377',
+            'time_local': '11/Jun/2019:05:28:00 +0000',
+            'request': 'GET /sonarqube/api/rules/search.protobuf?f=repo,name,severity,lang,internalKey,templateKey,params,actives,createdAt,updatedAt&activation=true&qprofile=AWjcRabH3KB239lnMkuI&p=1&ps=500 HTTP/1.1',
+            'request_time': '0.015',
+            'upstream_response_time': '0.015',
+            'status': '200',
+            'body_bytes_sent': '7603',
+            'http_referer': '-',
+            'http_user_agent': 'ScannerCli/3.3.0.1492',
+            'gzip_ratio': '-',
+        }
+        given_log_object = self.nlc._log_entry_to_log_object(log_entry)
+        self.assertEqual(expected_log_object, given_log_object)
+
+    def test_log_object_to_document(self):
+        log_object = {
+            'remote_address': '217.172.12.199',
+            'remote_user': '3346c17ac8a179541c7c13654202816866d44377',
+            'time_local': '11/Jun/2019:08:49:39 +0000',
+            'request': 'POST /analytics-backend/tweetClassification HTTP/1.1',
+            'request_time': '0.578',
+            'upstream_response_time': '0.578',
+            'status': '200',
+            'body_bytes_sent': '110',
+            'http_referer': '-',
+            'http_user_agent': 'Go-http-client/1.1',
+            'gzip_ratio': '-',
+        }
+        expected_document = {
+            'remoteAddress': '217.172.12.199',
+            'remoteUser': '3346c17ac8a179541c7c13654202816866d44377',
+            'timeLocal': datetime.datetime(2019, 6, 11, 8, 49, 39, tzinfo=tzutc()),
+            'request': 'POST /analytics-backend/tweetClassification HTTP/1.1',
+            'requestTime': 0.578,
+            'upstreamResponseTime': 0.578,
+            'status': '200',
+            'bodyBytesSent': 110,
+            'httpReferer': '-',
+            'httpUserAgent': 'Go-http-client/1.1',
+            'gzipRatio': '-'
+        }
+        given_document = self.nlc._log_object_to_document(log_object)
+        self.assertNotEqual(expected_document, given_document)
+        expected_document['httpMethod'] = 'POST'
+        expected_document['path'] = '/analytics-backend/tweetClassification'
+        expected_document['protocol'] = 'HTTP/1.1'
+        self.assertEqual(expected_document, given_document)
+
+    def test_logfile_to_documents(self):
+        remote_addr = '123.123.12.123'
+        remote_user = 'LTkfA46WENjRSDLxggXyZsVbMpWtSrLcKdHCz6L5'
+        local_time = '[11/Jun/2019:05:27:58 +0000]'
+        request = '"GET /this/is/some/path HTTP/1.0"'
+        request_time = '0.020'
+        response_time = '0.020'
+        status = '200'
+        body_bytes_sent = '452'
+        user_agent = '"This is a user agent"'
+        # Valid log file should be converted
+        log_file = f'{remote_addr} - {remote_user} {local_time} {request} {request_time} {response_time} {status} ' \
+            f'{body_bytes_sent} "-" {user_agent} "-"'
+        log_documents = self.nlc.logfile_to_documents(log_file)
+        self.assertEqual(1, len(log_documents))
+        log_file += '\n'
+        # Another valid log file should be converted
+        log_file += '217.172.12.199 - - [11/Jun/2019:05:56:37 +0000] ' \
+                    '"GET /ri-collection-explicit-feedback-twitter/mention/WindItalia/lang/it/fast HTTP/1.1" ' \
+                    '0.514 - 200 42098 "-" "Go-http-client/1.1" "-"'
+        log_documents = self.nlc.logfile_to_documents(log_file)
+        self.assertEqual(2, len(log_documents))
+        log_file += '\n'
+        # Bad log file should not be converted
+        log_file += '217.172.12.199 - - [something is wrong] ' \
+                    '"GET /ri-collection-explicit-feedback-twitter/mention/WindItalia/lang/it/fast HTTP/1.1" ' \
+                    '0.514 - 200 42098 "-" "Go-http-client/1.1" "-"'
+        log_documents = self.nlc.logfile_to_documents(log_file)
+        self.assertEqual(2, len(log_documents))
 
 
 if __name__ == '__main__':
