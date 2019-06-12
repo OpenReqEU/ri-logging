@@ -11,6 +11,7 @@ from datetime import datetime
 
 from apscheduler.triggers.cron import CronTrigger
 from dateutil import parser as datutil_parser
+from dateutil.utils import datetime as dateutil_datetime
 from flask import Blueprint, current_app, request, Response, Flask
 from pymongo.collection import Collection
 from pymongo.errors import ServerSelectionTimeoutError, NetworkTimeout
@@ -360,32 +361,34 @@ def import_logs_to_db(app_object: Flask):
     return None
 
 
-class NginxLogParser():
-    def __init__(self):
+class NginxLogConverter:
+    def __init__(self, app_object):
         self.regex_pattern = re.compile(r'''
-    (?P<ip>(^((?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?))|(?:(?:[0-9A-Fa-f]{1,4}:){6}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))|::(?:[0-9A-Fa-f]{1,4}:){5}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))|(?:[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:){4}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))|(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:){3}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))|(?:(?:[0-9A-Fa-f]{1,4}:){,2}[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:){2}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))|(?:(?:[0-9A-Fa-f]{1,4}:){,3}[0-9A-Fa-f]{1,4})?::[0-9A-Fa-f]{1,4}:(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))|(?:(?:[0-9A-Fa-f]{1,4}:){,4}[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))|(?:(?:[0-9A-Fa-f]{1,4}:){,5}[0-9A-Fa-f]{1,4})?::[0-9A-Fa-f]{1,4}|(?:(?:[0-9A-Fa-f]{1,4}:){,6}[0-9A-Fa-f]{1,4})?::)))
-    \s-\s(?P<remoteUser>((([a-zA-Z0-9]){40})|-))  # remote user (hyphen if no userId)
-    \s\[(?P<dateTime>(\d{2}\/[a-zA-Z]{3}\/\d{4}:\d{2}:\d{2}:\d{2}\s(\+|\-)\d{4}))\] # Datetime
-    \s"(?P<request>((GET|HEAD|POST|PUT|DELETE|CONNECT|OPTIONS|TRACE|PATCH)\s\/(.+)?\sHTTP\/\d\.\d))" # The HTTTP Request
-    \s(?P<request_time>(\d+\.\d+)) # Full request time, starting when NGINX reads the first byte from the client and ending when NGINX sends the last byte of the response body.
-    \s(?P<upstream_response_time>((\d+\.\d{3},?)(\s\d+\.\d{3})?|-)) #  Time between establishing a connection to an upstream server and receiving the last byte of the response body.
-    \s(?P<status>(\d{3})) # HTTP status code.
-    \s(?P<body_bytes_sent>(\d+)) # The size of the request.
-    \s"(?P<http_referer>(.+))" # The url where the request is coming from.
-    \s"(?P<http_user_agent>(.+))" # The user agent where the request comes from
-    \s"(?P<gzip_ratio>(.+))" # Whatever that is
-    ''', re.VERBOSE)
+        (?P<remote_address>(^((?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?))|(?:(?:[0-9A-Fa-f]{1,4}:){6}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))|::(?:[0-9A-Fa-f]{1,4}:){5}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))|(?:[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:){4}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))|(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:){3}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))|(?:(?:[0-9A-Fa-f]{1,4}:){,2}[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:){2}(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))|(?:(?:[0-9A-Fa-f]{1,4}:){,3}[0-9A-Fa-f]{1,4})?::[0-9A-Fa-f]{1,4}:(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))|(?:(?:[0-9A-Fa-f]{1,4}:){,4}[0-9A-Fa-f]{1,4})?::(?:[0-9A-Fa-f]{1,4}:[0-9A-Fa-f]{1,4}|(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))|(?:(?:[0-9A-Fa-f]{1,4}:){,5}[0-9A-Fa-f]{1,4})?::[0-9A-Fa-f]{1,4}|(?:(?:[0-9A-Fa-f]{1,4}:){,6}[0-9A-Fa-f]{1,4})?::)))
+        \s-\s(?P<remote_user>((([a-zA-Z0-9]){40})|-))  # remote user (hyphen if no userId)
+        \s\[(?P<time_local>(\d{2}\/[a-zA-Z]{3}\/\d{4}:\d{2}:\d{2}:\d{2}\s(\+|\-)\d{4}))\] # Datetime
+        \s"(?P<request>((GET|HEAD|POST|PUT|DELETE|CONNECT|OPTIONS|TRACE|PATCH)\s\/(.+)?\sHTTP\/\d\.\d))" # The HTTTP Request
+        \s(?P<request_time>(\d+\.\d+)) # Full request time, starting when NGINX reads the first byte from the client and ending when NGINX sends the last byte of the response body.
+        \s(?P<upstream_response_time>((\d+\.\d{3},?)(\s\d+\.\d{3})?|-)) #  Time between establishing a connection to an upstream server and receiving the last byte of the response body.
+        \s(?P<status>(\d{3})) # HTTP status code.
+        \s(?P<body_bytes_sent>(\d+)) # The size of the request.
+        \s"(?P<http_referer>(.+))" # The url where the request is coming from.
+        \s"(?P<http_user_agent>(.+))" # The user agent where the request comes from
+        \s"(?P<gzip_ratio>(.+))" # Whatever that is
+        ''', re.VERBOSE)
+        self.app_object = app_object
 
     def parse_logfile(self, full_path: str):
         f = util.read_file(full_path)
         lines = f.split('\n')
+        log_documents = []
         for i, line in enumerate(lines, 1):
             m = self.regex_pattern.match(line)
             try:
-                groups = {
-                    'ip': '',
-                    'remoteUser': '',
-                    'dateTime': '',
+                log_object = {
+                    'remote_address': '',
+                    'remote_user': '',
+                    'time_local': '',
                     'request': '',
                     'request_time': '',
                     'upstream_response_time': '',
@@ -395,11 +398,92 @@ class NginxLogParser():
                     'http_user_agent': '',
                     'gzip_ratio': '',
                 }
-                for key in groups.keys():
-                    groups[key] = m.group(key)
-                print(groups)
+                for key in log_object.keys():
+                    log_object[key] = m.group(key)
+                log_documents.append(self.__log_object_to_document(log_object))
             except AttributeError:
                 print(f'FAILURE: {line}')
+        return log_documents
+
+    def __parse_log_entry(self, log_entry: str):
+        m = self.regex_pattern.match(log_entry)
+        try:
+            log_object = {
+                'remote_address': '',
+                'remote_user': '',
+                'time_local': '',
+                'request': '',
+                'request_time': '',
+                'upstream_response_time': '',
+                'status': '',
+                'body_bytes_sent': '',
+                'http_referer': '',
+                'http_user_agent': '',
+                'gzip_ratio': '',
+            }
+            for key in log_object.keys():
+                log_object[key] = m.group(key)
+        except AttributeError as e:
+            self.app_object.logger.debug(f'Database error: {e}')
+            self.app_object.logger.debug(e)
+
+    def __time_local_to_iso_date(self, time_local_string: str) -> dateutil_datetime:
+        """
+        Convert the log timestamp to iso date format.
+        :param time_local: The default Nginx formatted timestamp e.g. 29/Sep/2016:10:20:48 +0100.
+        :return: The iso date representation of the timestamp.
+        """
+        months = {'Jan': '01', 'Feb': '02', 'Mar': '03', 'Apr': '04', 'May': '05', 'Jun': '06', 'Jul': '07',
+                  'Aug': '08', 'Sep': '09', 'Oct': '10', 'Nov': '11', 'Dec': '12'}
+        time_local_regex_pattern = re.compile(r'''
+        ^(?P<day>(\d{2}))
+        /(?P<month>([a-zA-Z]{3}))
+        /(?P<year>(\d{4}))
+        :(?P<time>(\d{2}(:\d{2}){2}))
+        \s(?P<timezone>(\+\d{4}))
+        ''', re.VERBOSE)
+        match_result = time_local_regex_pattern.match(time_local_string)
+        year = match_result.group("year")
+        month = months[match_result.group("month")]
+        day = match_result.group("day")
+        time = match_result.group("time")
+        timezone = match_result.group("timezone")
+        iso_date_string = f'{year}-{month}-{day}T{time}{timezone}'
+        return datutil_parser.parse(iso_date_string)
+
+    def __split_request(self, request_string: str) -> dict:
+        """
+        Split the request string into the HTTP method e.g. GET; The path e.g. /login; The HTTP protocol version.
+        :param request_string: The $request part of an Nginx log.
+        :return:
+        """
+        split = request_string.split(' ')
+        http_method = split[0]
+        path = split[1]
+        protocol = split[2]
+        return {'httpMethod': http_method, 'path': path, 'protocol': protocol}
+
+    def __log_object_to_document(self, log_object: dict) -> dict:
+        """
+        Convert the log object to a MongoDB suitable document.
+        :param log_object: The log object.
+        :return:
+        """
+        document = {
+            'remoteAddress': log_object['remote_address'],
+            'remoteUser': log_object['remote_user'],
+            'timeLocal': self.__time_local_to_iso_date(log_object['time_local']),
+            'request': log_object['request'],
+            'requestTime': log_object['request_time'],
+            'upstreamResponseTime': log_object['upstream_response_time'],
+            'status': log_object['status'],
+            'bodyBytesSent': log_object['body_bytes_sent'],
+            'httpReferer': log_object['http_referer'],
+            'httpUserAgent': log_object['http_user_agent'],
+            'gzipRatio': log_object['gzip_ratio'],
+        }
+        document = {**document, **self.__split_request(document['request'])}
+        return document
 
 
 if __name__ == '__main__':
