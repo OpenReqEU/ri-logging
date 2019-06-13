@@ -376,7 +376,7 @@ class NginxLogConverter:
         \s"(?P<http_user_agent>(.+))" # The user agent where the request comes from
         \s"(?P<gzip_ratio>(.+))" # Whatever that is
         ''', re.VERBOSE)
-        # self.app_object = app_object
+        self.app_object = app_object
 
     def logfile_to_documents(self, file: str):
         lines = file.split('\n')
@@ -408,9 +408,9 @@ class NginxLogConverter:
             for key in log_object.keys():
                 log_object[key] = m.group(key)
         except AttributeError as e:
+            self.app_object.logger.debug(f'Can\'t convert log entry to log object: {log_entry}')
+            self.app_object.logger.debug(e)
             raise e
-            # self.app_object.logger.debug(f'Database error: {e}')
-            # self.app_object.logger.debug(e)
         return log_object
 
     def _time_local_to_iso_date(self, time_local_string: str) -> dateutil_datetime:
@@ -456,29 +456,33 @@ class NginxLogConverter:
         :return:
         """
 
-        def check_for_empty_time(input: str)->float:
+        def check_for_empty_time(val: str)->float:
             """
             Convert a time entry to float. If time entry is empty (represented as hyphen "-" in the log file) to the
             value -1 to maintain the data type consistency of the attribute.
-            :param input: The input value; A string representation of a float value or a hyphen character.
+            :param val: The input value; A string representation of a float value or a hyphen character.
             :return: The float value or -1
             """
-            return -1 if input == '-' else float(input)
-
-        document = {
-            'remoteAddress': log_object['remote_address'],
-            'remoteUser': log_object['remote_user'],
-            'timeLocal': self._time_local_to_iso_date(log_object['time_local']),
-            'request': log_object['request'],
-            'requestTime': check_for_empty_time(log_object['request_time']),
-            'upstreamResponseTime': check_for_empty_time(log_object['upstream_response_time']),
-            'status': log_object['status'],
-            'bodyBytesSent': check_for_empty_time(log_object['body_bytes_sent']),
-            'httpReferer': log_object['http_referer'],
-            'httpUserAgent': log_object['http_user_agent'],
-            'gzipRatio': log_object['gzip_ratio'],
-        }
-        document = {**document, **self._split_request(document['request'])}
+            return -1 if val == '-' else float(val)
+        try:
+            document = {
+                'remoteAddress': log_object['remote_address'],
+                'remoteUser': log_object['remote_user'],
+                'timeLocal': self._time_local_to_iso_date(log_object['time_local']),
+                'request': log_object['request'],
+                'requestTime': check_for_empty_time(log_object['request_time']),
+                'upstreamResponseTime': check_for_empty_time(log_object['upstream_response_time']),
+                'status': log_object['status'],
+                'bodyBytesSent': check_for_empty_time(log_object['body_bytes_sent']),
+                'httpReferer': log_object['http_referer'],
+                'httpUserAgent': log_object['http_user_agent'],
+                'gzipRatio': log_object['gzip_ratio'],
+            }
+            document = {**document, **self._split_request(document['request'])}
+        except KeyError as e:
+            self.app_object.logger.debug(f'Can\'t convert log object to log dict: {log_object}')
+            self.app_object.logger.debug(e)
+            raise e
         return document
 
 
