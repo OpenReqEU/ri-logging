@@ -5,6 +5,7 @@ author: Volodymyr Biryuk
 <module comment>
 """
 import datetime
+import json
 import os
 import tempfile
 import unittest
@@ -97,13 +98,12 @@ class AuthTest(unittest.TestCase):
 class BaseTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        dir_debug_log = tempfile.mkdtemp()
-        dir_backend_log = tempfile.mkdtemp()
-
+        cls.dir_debug_log = tempfile.mkdtemp()
+        cls.dir_backend_log = tempfile.mkdtemp()
         cls.user_bearer_token = '12345'
         cls.admin_bearer_token = '54321'
         try:
-            os.remove('config.json')
+            os.remove(os.path.join(os.path.dirname(__file__), '..', 'config_test.json'))
         except FileNotFoundError:
             pass
         os.environ['MS_HOST'] = '0.0.0.0'
@@ -120,13 +120,20 @@ class BaseTest(unittest.TestCase):
         os.environ['API_URL'] = '0.0.0.0:9798/frontend/log'
         os.environ['USER_BEARER_TOKEN'] = cls.user_bearer_token
         os.environ['ADMIN_BEARER_TOKEN'] = cls.admin_bearer_token
-        os.environ['DIR_DEBUG_LOG'] = dir_debug_log
-        os.environ['DIR_BACKEND_LOG'] = dir_backend_log
+        os.environ['DIR_DEBUG_LOG'] = cls.dir_debug_log
+        os.environ['DIR_BACKEND_LOG'] = cls.dir_backend_log
         os.environ['BACKEND_LOG_SCHEDULE'] = '18:00'
 
         os.environ['DEBUG'] = 'True'
         os.environ['LOGGING_LEVEL'] = 'DEBUG'
         cls.app = microservice.create_app('config_test.json')
+
+    @classmethod
+    def tearDownClass(cls):
+        try:
+            os.remove(os.path.join(os.path.dirname(__file__), '..', 'config_test.json'))
+        except FileNotFoundError:
+            pass
 
 
 class FrontendAPITest(BaseTest):
@@ -191,13 +198,62 @@ class FrontendAPITest(BaseTest):
 
 
 class BackendAPITest(BaseTest):
-    def setUp(self):
-        self.url_base = '/backend'
+    url_base = '/backend'
 
-    def test_backend_logging_get(self):
+    def test_backend_log_get(self):
         with self.app.test_client() as c:
             response = c.get(f'{self.url_base}/log')
-            self.assertEqual(response.status_code, 401)
+            self.assertEqual(401, response.status_code)
+            response = c.get(f'{self.url_base}/log', headers={'Authorization': f'Bearer {self.user_bearer_token}'})
+            self.assertEqual(200, response.status_code)
+            response_data = json.loads(response.get_data())
+            self.assertEqual(0, len(response_data['filenames']))
+            with tempfile.NamedTemporaryFile(dir=self.dir_backend_log, suffix='.log'):
+                response = c.get(f'{self.url_base}/log', headers={'Authorization': f'Bearer {self.user_bearer_token}'})
+                response_data = json.loads(response.get_data())
+                self.assertEqual(1, len(response_data['filenames']))
+
+    def test_backend_logfile_get(self):
+        with self.app.test_client() as c:
+            logfile = tempfile.NamedTemporaryFile(dir=self.dir_backend_log, suffix='.log')
+            with logfile:
+                filename = logfile.name
+                filename = filename.split('/')[-1]
+                response = c.get(f'{self.url_base}/log/{filename}')
+                self.assertEqual(401, response.status_code)
+                response = c.get(f'{self.url_base}/log/{filename}',
+                                 headers={'Authorization': f'Bearer {self.user_bearer_token}'})
+                self.assertEqual(200, response.status_code)
+                response_data = json.loads(response.get_data())
+                self.assertIsNotNone(response_data)
+                filename = 'valid_but_wrong_name.log'
+                response = c.get(f'{self.url_base}/log/{filename}',
+                                 headers={'Authorization': f'Bearer {self.user_bearer_token}'})
+                self.assertEqual(404, response.status_code)
+
+    def test_import_logfiles_into_db(self):
+        logs0 = f'''123.123.12.123 - 11111aaaaa11111aaaaa11111aaaaa11111aaaaa [11/Jun/2019:05:28:00 +0000] "GET /this/is/a/path HTTP/1.1" 0.009 0.009 200 3470 "-" "ScannerCli/3.3.0.1492" "-"
+123.123.12.123 - 11111aaaaa11111aaaaa11111aaaaa11111aaaaa [11/Jun/2019:05:28:07 +0000] "POST /this/is/a/path HTTP/1.1" 0.070 0.066 200 44 "-" "ScannerCli/3.3.0.1492" "-"
+217.172.12.148 - - [11/Jun/2019:05:28:08 +0000] "GET /this/is/a/path/ HTTP/1.1" 0.004 0.004 200 11 "-" "Scanner for Jenkins" "-"
+217.172.12.148 - 11111aaaaa11111aaaaa11111aaaaa11111aaaaa [11/Jun/2019:05:28:08 +0000] "GET /this/is/a/path HTTP/1.1" 0.008 0.008 200 347 "-" "Scanner for Jenkins" "-"
+123.123.12.123 - - [11/Jun/2019:05:56:37 +0000] "GET /this/is/a/path HTTP/1.1" 0.292 0.292 200 5 "-" "Go-http-client/1.1" "-"
+123.123.12.123 - - [11/Jun/2019:05:56:37 +0000] "POST / HTTP/1.1" 0.003 0.003 200 0 "-" "Go-http-client/1.1" "-"'''
+        logs1 = f'''128.214.138.171 - - [11/Jun/2019:07:50:02 +0000] "GET /this/is/another/path HTTP/1.1" 222.042 189.637 302 255958653 "-" "Apache-HttpClient/4.5.3 (Java/11.0.3)" "-"
+123.123.12.123 - - [11/Jun/2019:07:51:12 +0000] "HEAD /this/is/another/path HTTP/2.0" 0.000 - 200 0 "-" "Apache-HttpClient/4.5.6 (Java/1.8.0_201)" "-"
+::1 - - [11/Jun/2019:07:52:23 +0000] "GET /this/is/another/path HTTP/1.0" 0.006 0.006 404 2055 "-" "bot" "-"
+123.123.12.123 - - [11/Jun/2019:07:52:23 +0000] "GET /robots.txt HTTP/1.1" 0.007 0.007 404 2055 "-" "bot" "-"
+123.123.12.123 - - [11/Jun/2019:07:56:02 +0000] "GET /this/is/another/path HTTP/1.1" 210.919 185.142 302 255958653 "-" "Apache-HttpClient/4.5.3 (Java/11.0.3)" "-"
+'''
+        # Create multiple logfiles
+        logfile0 = tempfile.NamedTemporaryFile(dir=self.dir_backend_log, suffix='.log')
+        logfile1 = tempfile.NamedTemporaryFile(dir=self.dir_backend_log, suffix='.log')
+        logs0 = str.encode(logs0)
+        logs1 = str.encode(logs1)
+        logfile0.write(logs0)
+        logfile1.write(logs1)
+        print(os.listdir(self.dir_backend_log))
+        print(logfile0.name)
+        backend_logging.import_logs_to_db(self.app)
 
 
 class UtilTest(unittest.TestCase):
@@ -210,7 +266,7 @@ class UtilTest(unittest.TestCase):
         self.assertEqual(now.__str__(), serialized)
 
     def test_read_write(self):
-        # Create temporary diractory write and read files from it and delet it.
+        # Create temporary directory write and read files from it and delet it.
         with self.test_dir:
             full_path = os.path.join(self.test_dir.name, 'test_file')
             util.write_file(full_path, 'Hello World!')
@@ -256,8 +312,7 @@ class UtilTest(unittest.TestCase):
 
 
 class AdminAPITest(BaseTest):
-    def setUp(self):
-        self.url_base = '/admin'
+    url_base = '/admin'
 
     def test_export_collections(self):
         with self.app.test_client() as c:
@@ -266,11 +321,6 @@ class AdminAPITest(BaseTest):
 
 
 class NginxLogConverterTest(BaseTest):
-
-    @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
-
     def setUp(self):
         self.nlc = backend_logging.NginxLogConverter(self.app)
 
