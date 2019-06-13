@@ -16,85 +16,6 @@ import microservice
 from microservice import auth, util, backend_logging
 
 
-class AuthTest(unittest.TestCase):
-
-    def test_bearer_auth_user(self):
-        # Auth service not initialized. Test for None token.
-        role = None
-        admin_token = None
-        user_token = None
-        given_token = None
-        auth.init_auth(user_token, admin_token)
-        auth_result = auth.bearer_token_auth(role, given_token)
-        self.assertFalse(auth_result)
-        # Test empty token
-        role = ''
-        user_token = ''
-        given_token = ''
-        auth.init_auth(user_token, admin_token)
-        auth_result = auth.bearer_token_auth(role, given_token)
-        self.assertFalse(auth_result)
-        # Test token without 'Bearer' keyword
-        role = 'user'
-        user_token = '12345'
-        given_token = '12345'
-        auth.init_auth(user_token, admin_token)
-        auth_result = auth.bearer_token_auth(role, given_token)
-        self.assertFalse(auth_result)
-        # Test for invalid token
-        role = 'user'
-        user_token = '12346'
-        given_token = 'Bearer 12345'
-        auth.init_auth(user_token, admin_token)
-        auth_result = auth.bearer_token_auth(role, given_token)
-        self.assertFalse(auth_result)
-        # Test for valid token
-        role = 'user'
-        user_token = '12345'
-        given_token = 'Bearer 12345'
-        auth.init_auth(user_token, admin_token)
-        auth_result = auth.bearer_token_auth(role, given_token)
-        self.assertTrue(auth_result)
-
-    def test_bearer_auth_admin(self):
-        # Auth service not initialized. Test for None token.
-        role = None
-        admin_token = None
-        user_token = None
-        given_token = None
-        auth.init_auth(user_token, admin_token)
-        auth_result = auth.bearer_token_auth(role, given_token)
-        self.assertFalse(auth_result)
-        # Test empty token
-        role = ''
-        user_token = ''
-        given_token = ''
-        auth.init_auth(user_token, admin_token)
-        auth_result = auth.bearer_token_auth(role, given_token)
-        self.assertFalse(auth_result)
-        # Test token without 'Bearer' keyword
-        role = 'admin'
-        user_token = '12345'
-        given_token = '12345'
-        auth.init_auth(user_token, admin_token)
-        auth_result = auth.bearer_token_auth(role, given_token)
-        self.assertFalse(auth_result)
-        # Test for invalid token
-        role = 'admin'
-        user_token = '12346'
-        given_token = 'Bearer 12345'
-        auth.init_auth(user_token, admin_token)
-        auth_result = auth.bearer_token_auth(role, given_token)
-        self.assertFalse(auth_result)
-        # Test for valid token
-        role = 'admin'
-        user_token = '12345'
-        given_token = 'Bearer 12345'
-        auth.init_auth(user_token, admin_token)
-        auth_result = auth.bearer_token_auth(role, given_token)
-        self.assertTrue(auth_result)
-
-
 class BaseTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -115,7 +36,7 @@ class BaseTest(unittest.TestCase):
         os.environ['DB_NAME_FRONTEND_LOGS'] = 'riLoggingTest'
         os.environ['DB_USER'] = ''
         os.environ['DB_PASSWORD'] = ''
-        os.environ['DB_CONNECTION_TIMEOUT'] = '3000'
+        os.environ['DB_CONNECTION_TIMEOUT'] = '500'
 
         os.environ['API_URL'] = '0.0.0.0:9798/frontend/log'
         os.environ['USER_BEARER_TOKEN'] = cls.user_bearer_token
@@ -135,6 +56,62 @@ class BaseTest(unittest.TestCase):
         except FileNotFoundError:
             pass
 
+
+class AuthTest(BaseTest):
+    def test_bearer_auth_user(self):
+        # Auth service not initialized. Test for None token.
+        role = None
+        given_token = None
+        auth_result = auth.bearer_token_auth(role, given_token)
+        self.assertFalse(auth_result)
+        # Test empty token
+        role = ''
+        given_token = ''
+        auth_result = auth.bearer_token_auth(role, given_token)
+        self.assertFalse(auth_result)
+        # Test token without 'Bearer' keyword
+        role = 'user'
+        given_token = '12345'
+        auth_result = auth.bearer_token_auth(role, given_token)
+        self.assertFalse(auth_result)
+        # Test for invalid token
+        role = 'user'
+        given_token = 'Bearer 12346'
+        auth_result = auth.bearer_token_auth(role, given_token)
+        self.assertFalse(auth_result)
+        # Test for valid token
+        role = 'user'
+        given_token = 'Bearer 12345'
+        auth_result = auth.bearer_token_auth(role, given_token)
+        self.assertTrue(auth_result)
+
+    def test_bearer_auth_admin(self):
+        # Auth service not initialized. Test for None token.
+        role = None
+        given_token = None
+        auth_result = auth.bearer_token_auth(role, given_token)
+        self.assertFalse(auth_result)
+        # Test empty token
+        role = ''
+        given_token = ''
+        auth_result = auth.bearer_token_auth(role, given_token)
+        self.assertFalse(auth_result)
+        # Test token without 'Bearer' keyword
+        role = 'admin'
+        given_token = '12345'
+        auth_result = auth.bearer_token_auth(role, given_token)
+        self.assertFalse(auth_result)
+        # Test for invalid token
+        role = 'admin'
+        given_token = 'Bearer 12345'
+        auth_result = auth.bearer_token_auth(role, given_token)
+        self.assertFalse(auth_result)
+        # Test for valid token
+        role = 'admin'
+        given_token = 'Bearer 54321'
+        auth_result = auth.bearer_token_auth(role, given_token)
+        self.assertTrue(auth_result)
+        
 
 class FrontendAPITest(BaseTest):
     def setUp(self):
@@ -314,10 +291,25 @@ class UtilTest(unittest.TestCase):
 class AdminAPITest(BaseTest):
     url_base = '/admin'
 
-    def test_export_collections(self):
+    def test_export_collection(self):
         with self.app.test_client() as c:
             response = c.get(f'{self.url_base}/test/export')
-            self.assertEqual(response.status_code, 401)
+            self.assertEqual(401, response.status_code)
+            response = c.get(
+                f'{self.url_base}/test/export',
+                headers={'Authorization': f'Bearer {self.admin_bearer_token}'}
+            )
+            self.assertEqual(500, response.status_code)
+
+    def test_remove_collection(self):
+        with self.app.test_client() as c:
+            response = c.delete(f'{self.url_base}/test/remove')
+            self.assertEqual(401, response.status_code)
+            response = c.get(
+                f'{self.url_base}/test/remove',
+                headers={'Authorization': f'Bearer {self.admin_bearer_token}'}
+            )
+            self.assertEqual(500, response.status_code)
 
 
 class NginxLogConverterTest(BaseTest):
