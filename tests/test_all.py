@@ -94,9 +94,12 @@ class AuthTest(unittest.TestCase):
         self.assertTrue(auth_result)
 
 
-class APITest(unittest.TestCase):
+class BaseTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        dir_debug_log = tempfile.mkdtemp()
+        dir_backend_log = tempfile.mkdtemp()
+
         cls.user_bearer_token = '12345'
         cls.admin_bearer_token = '54321'
         try:
@@ -117,8 +120,8 @@ class APITest(unittest.TestCase):
         os.environ['API_URL'] = '0.0.0.0:9798/frontend/log'
         os.environ['USER_BEARER_TOKEN'] = cls.user_bearer_token
         os.environ['ADMIN_BEARER_TOKEN'] = cls.admin_bearer_token
-        os.environ['DIR_DEBUG_LOG'] = '~/Desktop'
-        os.environ['DIR_BACKEND_LOG'] = '~/Desktop'
+        os.environ['DIR_DEBUG_LOG'] = dir_debug_log
+        os.environ['DIR_BACKEND_LOG'] = dir_backend_log
         os.environ['BACKEND_LOG_SCHEDULE'] = '18:00'
 
         os.environ['DEBUG'] = 'True'
@@ -126,7 +129,7 @@ class APITest(unittest.TestCase):
         cls.app = microservice.create_app('config_test.json')
 
 
-class FrontendAPITest(APITest):
+class FrontendAPITest(BaseTest):
     def setUp(self):
         self.url_base = '/frontend'
 
@@ -187,7 +190,7 @@ class FrontendAPITest(APITest):
             self.assertEqual(response.status_code, 400)
 
 
-class BackendAPITest(APITest):
+class BackendAPITest(BaseTest):
     def setUp(self):
         self.url_base = '/backend'
 
@@ -252,7 +255,7 @@ class UtilTest(unittest.TestCase):
                 pass
 
 
-class AdminAPITest(APITest):
+class AdminAPITest(BaseTest):
     def setUp(self):
         self.url_base = '/admin'
 
@@ -262,11 +265,14 @@ class AdminAPITest(APITest):
             self.assertEqual(response.status_code, 401)
 
 
-class NginxLogConverterTest(unittest.TestCase):
+class NginxLogConverterTest(BaseTest):
 
     @classmethod
     def setUpClass(cls):
-        cls.nlc = backend_logging.NginxLogConverter()
+        super().setUpClass()
+
+    def setUp(self):
+        self.nlc = backend_logging.NginxLogConverter(self.app)
 
     def test_convert_local_time_to_iso_date(self):
         time_local_string = '11/Jun/2019:08:41:02 +0000'
@@ -303,12 +309,13 @@ class NginxLogConverterTest(unittest.TestCase):
         self.assertEqual(split_request_expected, split_request_given)
 
     def test_log_entry_to_log_object(self):
-        log_entry = '217.172.12.199 - 3346c17ac8a179541c7c13654202816866d44377 [11/Jun/2019:05:28:00 +0000] "GET /sonarqube/api/rules/search.protobuf?f=repo,name,severity,lang,internalKey,templateKey,params,actives,createdAt,updatedAt&activation=true&qprofile=AWjcRabH3KB239lnMkuI&p=1&ps=500 HTTP/1.1" 0.015 0.015 200 7603 "-" "ScannerCli/3.3.0.1492" "-"'
+        log_entry = '217.172.12.199 - 3332v17ac8g179541c6c67574202811111d44377 [11/Jun/2019:05:28:00 +0000] ' \
+                    '"GET /sonarqube/api/?param=foo HTTP/1.1" 0.015 0.015 200 7603 "-" "ScannerCli/3.3.0.1492" "-"'
         expected_log_object = {
             'remote_address': '217.172.12.199',
-            'remote_user': '3346c17ac8a179541c7c13654202816866d44377',
+            'remote_user': '3332v17ac8g179541c6c67574202811111d44377',
             'time_local': '11/Jun/2019:05:28:00 +0000',
-            'request': 'GET /sonarqube/api/rules/search.protobuf?f=repo,name,severity,lang,internalKey,templateKey,params,actives,createdAt,updatedAt&activation=true&qprofile=AWjcRabH3KB239lnMkuI&p=1&ps=500 HTTP/1.1',
+            'request': 'GET /sonarqube/api/?param=foo HTTP/1.1',
             'request_time': '0.015',
             'upstream_response_time': '0.015',
             'status': '200',
@@ -319,13 +326,20 @@ class NginxLogConverterTest(unittest.TestCase):
         }
         given_log_object = self.nlc._log_entry_to_log_object(log_entry)
         self.assertEqual(expected_log_object, given_log_object)
+        # Test exception
+        try:
+            # Remove the remote address from string so it would fail
+            self.nlc._log_entry_to_log_object(log_entry[14:])
+            self.fail()
+        except AttributeError:
+            pass
 
     def test_log_object_to_document(self):
         log_object = {
             'remote_address': '217.172.12.199',
-            'remote_user': '3346c17ac8a179541c7c13654202816866d44377',
+            'remote_user': '3332v17ac8g179541c6c67574202811111d44377',
             'time_local': '11/Jun/2019:08:49:39 +0000',
-            'request': 'POST /analytics-backend/tweetClassification HTTP/1.1',
+            'request': 'POST /this/is/a/path HTTP/1.1',
             'request_time': '0.578',
             'upstream_response_time': '0.578',
             'status': '200',
@@ -336,9 +350,9 @@ class NginxLogConverterTest(unittest.TestCase):
         }
         expected_document = {
             'remoteAddress': '217.172.12.199',
-            'remoteUser': '3346c17ac8a179541c7c13654202816866d44377',
+            'remoteUser': '3332v17ac8g179541c6c67574202811111d44377',
             'timeLocal': datetime.datetime(2019, 6, 11, 8, 49, 39, tzinfo=tzutc()),
-            'request': 'POST /analytics-backend/tweetClassification HTTP/1.1',
+            'request': 'POST /this/is/a/path HTTP/1.1',
             'requestTime': 0.578,
             'upstreamResponseTime': 0.578,
             'status': '200',
@@ -350,9 +364,16 @@ class NginxLogConverterTest(unittest.TestCase):
         given_document = self.nlc._log_object_to_document(log_object)
         self.assertNotEqual(expected_document, given_document)
         expected_document['httpMethod'] = 'POST'
-        expected_document['path'] = '/analytics-backend/tweetClassification'
+        expected_document['path'] = '/this/is/a/path'
         expected_document['protocol'] = 'HTTP/1.1'
         self.assertEqual(expected_document, given_document)
+        try:
+            # Remove the remote address from string so it would fail
+            del log_object['remote_address']
+            self.nlc._log_object_to_document(log_object)
+            self.fail()
+        except KeyError:
+            pass
 
     def test_logfile_to_documents(self):
         remote_addr = '123.123.12.123'
@@ -372,15 +393,15 @@ class NginxLogConverterTest(unittest.TestCase):
         log_file += '\n'
         # Another valid log file should be converted
         log_file += '217.172.12.199 - - [11/Jun/2019:05:56:37 +0000] ' \
-                    '"GET /ri-collection-explicit-feedback-twitter/mention/WindItalia/lang/it/fast HTTP/1.1" ' \
-                    '0.514 - 200 42098 "-" "Go-http-client/1.1" "-"'
+                    '"GET /another/path/ HTTP/1.1" ' \
+                    '0.514 - 200 42098 "-" "Some browser / 13 4pojfd" "-"'
         log_documents = self.nlc.logfile_to_documents(log_file)
         self.assertEqual(2, len(log_documents))
         log_file += '\n'
         # Bad log file should not be converted
         log_file += '217.172.12.199 - - [something is wrong] ' \
-                    '"GET /ri-collection-explicit-feedback-twitter/mention/WindItalia/lang/it/fast HTTP/1.1" ' \
-                    '0.514 - 200 42098 "-" "Go-http-client/1.1" "-"'
+                    '"GET / HTTP/2.0" ' \
+                    '0.514 - 200 42098 "-" "A user agent <.39" "-"'
         log_documents = self.nlc.logfile_to_documents(log_file)
         self.assertEqual(2, len(log_documents))
 
