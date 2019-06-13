@@ -187,16 +187,16 @@ def log_get(log_name):
             file_content = util.read_file(full_path)
             response_body = json.dumps({'log': file_content})
         http_status = 200
-    except (PermissionError, Exception)as e:
-        current_app.logger.error(f'OS error: {e}')
-        response_body = json.dumps({'message': 'Internal error.'})
-        content_type = 'application/json'
-        http_status = 500
     except (OSError, FileNotFoundError) as e:
         current_app.logger.error(f'OS error: {e}')
         response_body = json.dumps({'message': "Log doesn't exist."})
         content_type = 'application/json'
         http_status = 404
+    except (PermissionError, Exception)as e:
+        current_app.logger.error(f'OS error: {e}')
+        response_body = json.dumps({'message': 'Internal error.'})
+        content_type = 'application/json'
+        http_status = 500
     finally:
         response = Response(response=response_body, status=http_status, content_type=content_type)
         current_app.logger.info(f'Responding with code: {http_status}')
