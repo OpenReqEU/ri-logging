@@ -114,7 +114,8 @@ def init_script(app_object: Flask):
         full_path = os.path.join(dirname, 'logger.min.js')
         util.write_file(full_path, file)
     except Exception as e:
-        print(e)
+        pass
+        # print(e)
     return None
 
 
@@ -136,7 +137,7 @@ def log_by_project_id_get(project_id: str, requirement_id: str = None):
         if requirement_id:
             query['body.requirementId'] = requirement_id
         query_result = list(frontend_logs.find(query, {'_id': 0}))
-        print(query_result)
+        # print(query_result)
         response_body = json.dumps({'logs': query_result}, default=util.serialize)
     except (data_access.ServerSelectionTimeoutError, data_access.NetworkTimeout, Exception) as e:
         http_status = 500
@@ -277,15 +278,15 @@ def log_get():
                 query['$and'].append(sub_query)
             if from_:
                 from_ = f'{from_}T00:00:00.000Z'
-                print(from_)
+                # print(from_)
                 from_parsed = dp.parse(from_)
                 query['$and'].append({'body.isoTime': {'$gte': from_parsed}})
             if to_:
                 to_ = f'{to_}T00:00:00.000Z'
-                print(to_)
+                # print(to_)
                 to_parsed = dp.parse(to_)
                 query['$and'].append({'body.isoTime': {'$lte': to_parsed}})
-        print(query)
+        # print(query)
         response_body = json.dumps({'logs': list(frontend_logs.find(query, {'_id': 0}))}, default=util.serialize)
     except (data_access.ServerSelectionTimeoutError, data_access.NetworkTimeout, Exception) as e:
         http_status = 500
@@ -330,26 +331,26 @@ def log_change_get():
                 query['$and'].append(sub_query)
             if from_:
                 from_ = f'{from_}T00:00:00.000Z'
-                print(from_)
                 from_parsed = dp.parse(from_)
                 query['$and'].append({'body.isoTime': {'$gte': from_parsed}})
             if to_:
                 to_ = f'{to_}T00:00:00.000Z'
-                print(to_)
                 to_parsed = dp.parse(to_)
                 query['$and'].append({'body.isoTime': {'$lte': to_parsed}})
-        print(query)
-        query_result = list(frontend_logs.find(query, {'_id': 0}))
-        change_count = Counter(log['body']['targetclassName'] for log in query_result)
-        print(change_count)
-        result = {
-            'projectId': project_id,
-            'title': change_count['or-requirement-title'],
-            'description': change_count['note-editable'],
-            'status': change_count['select-dropdown']
-        }
-        # print(list(query_result))
-        response_body = json.dumps({'logs': result}, default=util.serialize)
+            query_result = list(frontend_logs.find(query, {'_id': 0}))
+            change_count = Counter(log['body']['targetclassName'] for log in query_result)
+            result = {
+                'projectId': project_id,
+                'title': change_count['or-requirement-title'],
+                'description': change_count['note-editable'],
+                'status': change_count['select-dropdown']
+            }
+            response_body = json.dumps({'logs': result}, default=util.serialize)
+        else:
+            http_status = 400
+            mimetype = 'application/json'
+            current_app.logger.error(f'Bad Request, responding with status 400')
+            response_body = json.dumps({'message': 'The request must contain at least on query parameter.'})
     except (data_access.ServerSelectionTimeoutError, data_access.NetworkTimeout, Exception) as e:
         http_status = 500
         mimetype = 'application/json'
