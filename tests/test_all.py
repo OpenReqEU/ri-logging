@@ -116,67 +116,112 @@ class AuthTest(BaseTest):
         given_token = 'Bearer 54321'
         auth_result = auth.bearer_token_auth(role, given_token)
         self.assertTrue(auth_result)
-        
+
 
 class FrontendAPITest(BaseTest):
-    def setUp(self):
-        self.url_base = '/frontend'
+    url_base = '/frontend'
 
     def test_frontend_script(self):
         with self.app.test_client() as c:
             response = c.get(f'{self.url_base}/script')
             self.assertEqual(200, response.status_code)
 
+    def test_frontend_log_post(self):
+        with self.app.test_client() as c:
+            url = f'{self.url_base}/log'
+            response = c.post(
+                url,
+                data=dict(type='click'),
+                headers={
+                    'Host': 'localhost:9798',
+                    'Connection': 'close',
+                    'Content-Length': '1200',
+                    'User-Agent': 'insomnia/6.3.2',
+                    'Content-Type': 'application/json',
+                    'Sessionid': '1q2w3e4r5t6y', 'Accept': '*/*'
+                },
+                content_type='application/json',
+                follow_redirects=True)
+            self.assertEqual(200, response.status_code)
+            response = c.post(
+                url,
+                data=dict(foo='bar'),
+                headers={
+                    'Host': 'localhost:9798',
+                    'Connection': 'close',
+                    'Content-Length': '1200',
+                    'User-Agent': 'insomnia/6.3.2',
+                    'Content-Type': 'application/json',
+                    'Sessionid': '1q2w3e4r5t6y', 'Accept': '*/*'
+                },
+                content_type='application/json',
+                follow_redirects=True)
+            self.assertEqual(400, response.status_code)
+
     def test_frontend_log_get(self):
         with self.app.test_client() as c:
             response = c.get(f'{self.url_base}/log')
-            self.assertEqual(response.status_code, 401)
+            self.assertEqual(401, response.status_code)
             given_token = 'invalid token'
             response = c.get(f'{self.url_base}/log', headers={'Authorization': f'Bearer {given_token}'})
-            self.assertEqual(response.status_code, 401)
+            self.assertEqual(401, response.status_code)
+            # Test valid auth
             response = c.get(f'{self.url_base}/log', headers={'Authorization': f'Bearer {self.user_bearer_token}'})
-            self.assertEqual(response.status_code, 500)
+            self.assertEqual(200, response.status_code)
+            # Test with params
+            url = f'{self.url_base}/log?username=foo&from=20190112&to20190601&projectId=123&requirementId=312'
+            response = c.get(url, headers={'Authorization': f'Bearer {self.user_bearer_token}'})
+            self.assertEqual(200, response.status_code)
 
     def test_frontend_log_change_get(self):
         with self.app.test_client() as c:
             response = c.get(f'{self.url_base}/log/change')
-            self.assertEqual(response.status_code, 401)
+            self.assertEqual(401, response.status_code)
             given_token = 'invalid token'
             response = c.get(f'{self.url_base}/log/change', headers={'Authorization': f'Bearer {given_token}'})
-            self.assertEqual(response.status_code, 401)
+            self.assertEqual(401, response.status_code)
             response = c.get(f'{self.url_base}/log/change',
                              headers={'Authorization': f'Bearer {self.user_bearer_token}'})
-            self.assertEqual(response.status_code, 500)
+            self.assertEqual(400, response.status_code)
+            response = c.get(f'{self.url_base}/log/change/123?username=foo',
+                             headers={'Authorization': f'Bearer {self.user_bearer_token}'})
+            self.assertEqual(200, response.status_code)
+            url = f'{self.url_base}/log/change?usernam=foo&userId=555&from=20190112&to=20190601&projectId=123&requirementId=312'
+            response = c.get(url, headers={'Authorization': f'Bearer {self.user_bearer_token}'})
+            self.assertEqual(200, response.status_code)
 
     def test_frontend_change_get(self):
         with self.app.test_client() as c:
             response = c.get(f'{self.url_base}/change')
-            self.assertEqual(response.status_code, 401)
+            self.assertEqual(401, response.status_code)
             given_token = 'invalid token'
             response = c.get(f'{self.url_base}/change', headers={'Authorization': f'Bearer {given_token}'})
-            self.assertEqual(response.status_code, 401)
+            self.assertEqual(401, response.status_code)
             response = c.get(f'{self.url_base}/change', headers={'Authorization': f'Bearer {self.user_bearer_token}'})
-            self.assertEqual(response.status_code, 500)
+            self.assertEqual(200, response.status_code)
+            # Test with params
+            response = c.get(f'{self.url_base}/change/123?username=foo', headers={'Authorization': f'Bearer {self.user_bearer_token}'})
+            self.assertEqual(200, response.status_code)
 
-    def test_frontend_log_porject_get(self):
+    def test_frontend_log_project_get(self):
         with self.app.test_client() as c:
             project_id = 'test'
             response = c.get(f'{self.url_base}/log/{project_id}')
-            self.assertEqual(response.status_code, 401)
+            self.assertEqual(401, response.status_code)
             requirement_id = 'test'
             response = c.get(f'{self.url_base}/log/{project_id}/{requirement_id}')
-            self.assertEqual(response.status_code, 401)
+            self.assertEqual(401, response.status_code)
             given_token = 'invalid token'
             response = c.get(f'{self.url_base}/log/{project_id}', headers={'Authorization': f'Bearer {given_token}'})
-            self.assertEqual(response.status_code, 401)
+            self.assertEqual(401, response.status_code)
             response = c.get(f'{self.url_base}/log/{project_id}/{requirement_id}',
                              headers={'Authorization': f'Bearer {self.user_bearer_token}'})
-            self.assertEqual(response.status_code, 500)
+            self.assertEqual(200, response.status_code)
 
     def test_frontend_log_post(self):
         with self.app.test_client() as c:
             response = c.post(f'{self.url_base}/log', )
-            self.assertEqual(response.status_code, 400)
+            self.assertEqual(400, response.status_code)
 
 
 class BackendAPITest(BaseTest):
@@ -304,7 +349,7 @@ class AdminAPITest(BaseTest):
                 f'{self.url_base}/test/export',
                 headers={'Authorization': f'Bearer {self.admin_bearer_token}'}
             )
-            self.assertEqual(500, response.status_code)
+            self.assertEqual(200, response.status_code)
 
     def test_remove_collection(self):
         with self.app.test_client() as c:
@@ -314,7 +359,7 @@ class AdminAPITest(BaseTest):
                 f'{self.url_base}/test/remove',
                 headers={'Authorization': f'Bearer {self.admin_bearer_token}'}
             )
-            self.assertEqual(500, response.status_code)
+            self.assertEqual(200, response.status_code)
 
 
 class NginxLogConverterTest(BaseTest):
