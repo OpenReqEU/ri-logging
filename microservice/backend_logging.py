@@ -210,129 +210,30 @@ def import_logs_to_db(app_object: Flask):
     :return: HTTP Response.
     """
 
-    def log_entry_to_dict(log_entry: str):
-        """
-        Convert a default formatted log entry (one line) of a NGINX log file to a python dict.
-        :param log_entry: One line of a NGINX log file.
-        :return: A pyhon dict representation of a log entry.
-        """
-
-        def nginx_local_time_to_iso_date(nginx_date: str):
-            """
-            Convert the log timestamp to iso date.
-            :param nginx_date: The default Nginx formatted timestamp e.g. 29/Sep/2016:10:20:48 +0100.
-            :return: The iso date representation of the timestamp.
-            """
-            months = {'Jan': 0, 'Feb': 1, 'Mar': 2, 'Apr': 3, 'May': 4, 'Jun': 5, 'Jul': 6, 'Aug': 7, 'Sep': 8,
-                      'Oct': 9, 'Nov': 10, 'Dec': 11}
-            nginx_date = nginx_date.replace(' ', '')
-            split = nginx_date.split('/')
-            day = split[0]
-            month = months[split[1]]
-            split = split[2].split(':')
-            year = split[0]
-            hour = split[1]
-            minute = split[2]
-            split = split[3].split('+')
-            second = split[0]
-            timezone = f'{split[1][:-2]}:{split[1][2:]}'
-            iso_date = f'{year}-{month}-{day}T{hour}:{minute}:{second}+{timezone}'
-            return datutil_parser.parse(iso_date)
-
-        def part0(line_split: str):
-            split = re.split(r'\[|\]', line_split)
-            remote_address_and_user = split[0].split(' ')
-            remote_addr = remote_address_and_user[0]
-            hyphen = remote_address_and_user[1]
-            remote_user = remote_address_and_user[2]
-            log_object['remoteAddr'] = remote_addr
-            log_object['remoteUser'] = remote_user
-            log_object['isoDate'] = nginx_local_time_to_iso_date(split[1])
-            return None
-
-        def part1(split_line: str):
-            split1 = split_line.split(' ')
-            log_object['httpMethod'] = ''
-            log_object['path'] = ''
-            log_object['httpVersion'] = ''
-            log_object['request'] = split_line
-            if len(split1) >= 3:
-                http_method = split1[0]
-                path = split1[1]
-                http_version = split1[2]
-                log_object['httpMethod'] = http_method
-                log_object['path'] = path
-                log_object['httpVersion'] = http_version
-            return None
-
-        def part2(split_line: str):
-            split = split_line.split(' ')
-            status = split[1]
-            body_bytes_sent = split[2]
-            log_object['status'] = status
-            log_object['bodyBytesSent'] = body_bytes_sent
-            return None
-
-        def part3(split_line: str):
-            log_object['httpReferer'] = split_line
-            return None
-
-        def part4(split_line: str):
-            log_object['httpUserAgent'] = split_line
-            return None
-
-        def part5(split_line: str):
-            log_object['httpXForwardedFor'] = split_line
-            return None
-
-        log_object = {}
-        # if log_entry.startswith('61.219'):
-        #     print('aaa')
-        split_line = log_entry.split('"')
-        split_line = [split for split in split_line if split != ' ']
-
-        part0(split_line[0])
-
-        part1(split_line[1])
-
-        part2(split_line[2])
-
-        part3(split_line[3])
-
-        part4(split_line[4])
-
-        part5(split_line[5])
-
-        return log_object
-
-    def import_log_to_db(app_object: Flask, file_name: str):
+    def import_logfile_to_db(file_name: str):
         """
         Import a Nginx log file into the backend log database.
         :return:
         """
         full_path = os.path.join(back_end_log_dir, file_name)
-        file_content = util.unzip(full_path).decode('utf-8')
-        log = file_content
-        lines = log.split('\n')
+        if full_path.endswith('.gz'):
+            file_content = util.unzip(full_path).decode('utf-8')
+        else:
+            file_content = util.read_file(full_path)
         log_objects = []
         now = datetime.now()
-        for line in lines:
-            # Non empty lines only
-            if line:
-                try:
-                    log_object = log_entry_to_dict(line)
-                    log_object['insertionTime'] = now
-                    log_object['fileName'] = file_name
-                    log_objects.append(log_object)
-                except IndexError as e:
-                    app_object.logger.warn(f'Error converting line: {line}')
+        log_converter = NginxLogConverter(app_object)
+        log_documents = log_converter.logfile_to_documents(file_content)
+        for log_document in log_documents:
+            log_document['insertionTime'] = now
+            log_document['fileName'] = file_name
         try:
             app_object.logger.info(f'Inserting backend log into DB.')
-            backend_logs.insert_many(log_objects)
+            backend_logs.insert_many(log_documents)
         except (ServerSelectionTimeoutError, NetworkTimeout)as e:
             app_object.logger.error(f'Database error: {e}')
             app_object.logger.debug(e)
-            raise e
+            pass
         app_object.logger.info(f'Inserted {len(log_objects)}.')
         return None
 
@@ -341,6 +242,8 @@ def import_logs_to_db(app_object: Flask):
         files = os.listdir(dir_path)
         # Match logs with names such as access.log-20190425.gz
         files_in_dir = [file for file in files if re.match(r'access\.log-.+\.gz', file)]
+        if not files_in_dir:
+            files_in_dir = files
         files_in_db = backend_logs.distinct('fileName')
         # Only keep files that are in the dir but not in the db
         files_missing = [file for file in files_in_dir if file not in files_in_db]
@@ -349,13 +252,13 @@ def import_logs_to_db(app_object: Flask):
             app_object.logger.info(f'Inserting {file_count} files into db.')
             for i, file in enumerate(files_missing):
                 app_object.logger.info(f'Inserting file {i + 1}/{file_count} into DB.')
-                import_log_to_db(app_object, file)
+                import_logfile_to_db(file)
         else:
             app_object.logger.info(f'No new log files detected.')
     except (ServerSelectionTimeoutError, PermissionError)as e:
         app_object.logger.error(f'Database error: {e}')
         app_object.logger.debug(e)
-    except (Exception) as e:
+    except Exception as e:
         app_object.logger.error(f'Unexpected error : {e}')
         app_object.logger.debug(e)
     return None
@@ -385,7 +288,8 @@ class NginxLogConverter:
             try:
                 log_object = self._log_entry_to_log_object(line)
                 log_documents.append(self._log_object_to_document(log_object))
-            except AttributeError:
+            except AttributeError as e:
+                self.app_object.logger.debug(f'Error while converting logfile {e}')
                 pass
         return log_documents
 
