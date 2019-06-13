@@ -13,7 +13,7 @@ import unittest
 from dateutil.tz import tzutc
 
 import microservice
-from microservice import auth, util, backend_logging
+from microservice import auth, util, backend_logging, data_access
 
 
 class BaseTest(unittest.TestCase):
@@ -55,6 +55,11 @@ class BaseTest(unittest.TestCase):
             os.remove(os.path.join(os.path.dirname(__file__), '..', 'config_test.json'))
         except FileNotFoundError:
             pass
+
+
+class DataAccessTest(BaseTest):
+    def test_connection(self):
+        client = data_access.MongoDBConnection('0.0.0.0', 27017)
 
 
 class AuthTest(BaseTest):
@@ -305,7 +310,7 @@ class AdminAPITest(BaseTest):
         with self.app.test_client() as c:
             response = c.delete(f'{self.url_base}/test/remove')
             self.assertEqual(401, response.status_code)
-            response = c.get(
+            response = c.delete(
                 f'{self.url_base}/test/remove',
                 headers={'Authorization': f'Bearer {self.admin_bearer_token}'}
             )
