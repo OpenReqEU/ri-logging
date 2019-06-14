@@ -8,7 +8,7 @@
     
     
     <meta http-equiv="X-UA-Compatible" content="IE=emulateIE7" />
-    <title>Coverage for microservice/backend_logging.py: 71%</title>
+    <title>Coverage for microservice/backend_logging.py: 73%</title>
     <link rel="stylesheet" href="style.css" type="text/css">
     
     <script type="text/javascript" src="jquery.min.js"></script>
@@ -24,15 +24,15 @@
 <div id="header">
     <div class="content">
         <h1>Coverage for <b>microservice/backend_logging.py</b> :
-            <span class="pc_cov">71%</span>
+            <span class="pc_cov">73%</span>
         </h1>
 
         <img id="keyboard_icon" src="keybd_closed.png" alt="Show keyboard shortcuts" />
 
         <h2 class="stats">
             230 statements &nbsp;
-            <span class="run hide_run shortkey_r button_toggle_run">164 run</span>
-            <span class="mis shortkey_m button_toggle_mis">66 missing</span>
+            <span class="run hide_run shortkey_r button_toggle_run">169 run</span>
+            <span class="mis shortkey_m button_toggle_mis">61 missing</span>
             <span class="exc shortkey_x button_toggle_exc">0 excluded</span>
 
             
@@ -246,12 +246,12 @@
 <p id="n177" class="stm run hide_run"><a href="#n177">177</a></p>
 <p id="n178" class="stm run hide_run"><a href="#n178">178</a></p>
 <p id="n179" class="stm run hide_run"><a href="#n179">179</a></p>
-<p id="n180" class="stm mis"><a href="#n180">180</a></p>
-<p id="n181" class="stm mis"><a href="#n181">181</a></p>
-<p id="n182" class="stm mis"><a href="#n182">182</a></p>
-<p id="n183" class="stm mis"><a href="#n183">183</a></p>
+<p id="n180" class="stm run hide_run"><a href="#n180">180</a></p>
+<p id="n181" class="stm run hide_run"><a href="#n181">181</a></p>
+<p id="n182" class="stm run hide_run"><a href="#n182">182</a></p>
+<p id="n183" class="stm run hide_run"><a href="#n183">183</a></p>
 <p id="n184" class="pln"><a href="#n184">184</a></p>
-<p id="n185" class="stm mis"><a href="#n185">185</a></p>
+<p id="n185" class="stm run hide_run"><a href="#n185">185</a></p>
 <p id="n186" class="pln"><a href="#n186">186</a></p>
 <p id="n187" class="stm run hide_run"><a href="#n187">187</a></p>
 <p id="n188" class="stm run hide_run"><a href="#n188">188</a></p>
@@ -643,12 +643,12 @@
 <p id="t177" class="stm run hide_run">        <span class="nam">log_dir</span> <span class="op">=</span> <span class="nam">get_backend_log_path</span><span class="op">(</span><span class="op">)</span><span class="strut">&nbsp;</span></p>
 <p id="t178" class="stm run hide_run">        <span class="nam">full_path</span> <span class="op">=</span> <span class="nam">os</span><span class="op">.</span><span class="nam">path</span><span class="op">.</span><span class="nam">join</span><span class="op">(</span><span class="nam">log_dir</span><span class="op">,</span> <span class="nam">log_name</span><span class="op">)</span><span class="strut">&nbsp;</span></p>
 <p id="t179" class="stm run hide_run">        <span class="key">if</span> <span class="nam">full_path</span><span class="op">.</span><span class="nam">endswith</span><span class="op">(</span><span class="str">'.gz'</span><span class="op">)</span><span class="op">:</span><span class="strut">&nbsp;</span></p>
-<p id="t180" class="stm mis">            <span class="nam">unzipped_file</span> <span class="op">=</span> <span class="nam">util</span><span class="op">.</span><span class="nam">unzip</span><span class="op">(</span><span class="nam">full_path</span><span class="op">)</span><span class="op">.</span><span class="nam">decode</span><span class="op">(</span><span class="str">'utf-8'</span><span class="op">)</span><span class="strut">&nbsp;</span></p>
-<p id="t181" class="stm mis">            <span class="key">if</span> <span class="nam">format</span> <span class="op">==</span> <span class="str">'text'</span><span class="op">:</span><span class="strut">&nbsp;</span></p>
-<p id="t182" class="stm mis">                <span class="nam">response_body</span> <span class="op">=</span> <span class="nam">unzipped_file</span><span class="strut">&nbsp;</span></p>
-<p id="t183" class="stm mis">                <span class="nam">content_type</span> <span class="op">=</span> <span class="str">'text/plain'</span><span class="strut">&nbsp;</span></p>
+<p id="t180" class="stm run hide_run">            <span class="nam">unzipped_file</span> <span class="op">=</span> <span class="nam">util</span><span class="op">.</span><span class="nam">unzip</span><span class="op">(</span><span class="nam">full_path</span><span class="op">)</span><span class="op">.</span><span class="nam">decode</span><span class="op">(</span><span class="str">'utf-8'</span><span class="op">)</span><span class="strut">&nbsp;</span></p>
+<p id="t181" class="stm run hide_run">            <span class="key">if</span> <span class="nam">format</span> <span class="op">==</span> <span class="str">'text'</span><span class="op">:</span><span class="strut">&nbsp;</span></p>
+<p id="t182" class="stm run hide_run">                <span class="nam">response_body</span> <span class="op">=</span> <span class="nam">unzipped_file</span><span class="strut">&nbsp;</span></p>
+<p id="t183" class="stm run hide_run">                <span class="nam">content_type</span> <span class="op">=</span> <span class="str">'text/plain'</span><span class="strut">&nbsp;</span></p>
 <p id="t184" class="pln">            <span class="key">else</span><span class="op">:</span><span class="strut">&nbsp;</span></p>
-<p id="t185" class="stm mis">                <span class="nam">response_body</span> <span class="op">=</span> <span class="nam">json</span><span class="op">.</span><span class="nam">dumps</span><span class="op">(</span><span class="op">{</span><span class="str">'log'</span><span class="op">:</span> <span class="nam">unzipped_file</span><span class="op">}</span><span class="op">)</span><span class="strut">&nbsp;</span></p>
+<p id="t185" class="stm run hide_run">                <span class="nam">response_body</span> <span class="op">=</span> <span class="nam">json</span><span class="op">.</span><span class="nam">dumps</span><span class="op">(</span><span class="op">{</span><span class="str">'log'</span><span class="op">:</span> <span class="nam">unzipped_file</span><span class="op">}</span><span class="op">)</span><span class="strut">&nbsp;</span></p>
 <p id="t186" class="pln">        <span class="key">else</span><span class="op">:</span><span class="strut">&nbsp;</span></p>
 <p id="t187" class="stm run hide_run">            <span class="nam">file_content</span> <span class="op">=</span> <span class="nam">util</span><span class="op">.</span><span class="nam">read_file</span><span class="op">(</span><span class="nam">full_path</span><span class="op">)</span><span class="strut">&nbsp;</span></p>
 <p id="t188" class="stm run hide_run">            <span class="nam">response_body</span> <span class="op">=</span> <span class="nam">json</span><span class="op">.</span><span class="nam">dumps</span><span class="op">(</span><span class="op">{</span><span class="str">'log'</span><span class="op">:</span> <span class="nam">file_content</span><span class="op">}</span><span class="op">)</span><span class="strut">&nbsp;</span></p>
@@ -868,7 +868,7 @@
     <div class="content">
         <p>
             <a class="nav" href="index.html">&#xab; index</a> &nbsp; &nbsp; <a class="nav" href="https://coverage.readthedocs.io">coverage.py v4.5.3</a>,
-            created at 2019-06-13 18:09
+            created at 2019-06-14 17:18
         </p>
     </div>
 </div>
