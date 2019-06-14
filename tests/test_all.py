@@ -13,7 +13,7 @@ import unittest
 from dateutil.tz import tzutc
 
 import microservice
-from microservice import auth, util, backend_logging, data_access
+from microservice import auth, util, backend_logging, data_access, frontend_logging
 
 
 class BaseTest(unittest.TestCase):
@@ -121,6 +121,47 @@ class AuthTest(BaseTest):
 class FrontendAPITest(BaseTest):
     url_base = '/frontend'
 
+    def test_build_query(self):
+        parameters = {
+            'username': 'user name',
+            'from': '20190507',
+            'to': '20190601',
+            'projectId': '123',
+            'requirementId': '11',
+            'userId': '1475'
+        }
+        base_query = {'$and': []}
+        actual_query = frontend_logging._build_query(parameters, base_query)
+        expected_query = {
+            '$and': [
+                {'body.username': 'user name'},
+                {'body.userId': '1475'},
+                {'body.requirementId': '11'},
+                {'body.projectId': '123'},
+                {'body.isoTime': {'$gte': datetime.datetime(2019, 5, 7, 0, 0, tzinfo=tzutc())}},
+                {'body.isoTime': {'$lte': datetime.datetime(2019, 6, 1, 0, 0, tzinfo=tzutc())}}
+            ]
+        }
+        for sub_query in expected_query['$and']:
+            if not sub_query in actual_query['$and']:
+                self.fail()
+        base_query = {'$and': [{'$or': [{'body.type': 'change'}, {'body.type': 'blur'}]}]}
+        actual_query = frontend_logging._build_query(parameters, base_query)
+        expected_query = {
+            '$and': [
+                {'$or': [{'body.type': 'change'}, {'body.type': 'blur'}]},
+                {'body.username': 'user name'},
+                {'body.userId': '1475'},
+                {'body.requirementId': '11'},
+                {'body.projectId': '123'},
+                {'body.isoTime': {'$gte': datetime.datetime(2019, 5, 7, 0, 0, tzinfo=tzutc())}},
+                {'body.isoTime': {'$lte': datetime.datetime(2019, 6, 1, 0, 0, tzinfo=tzutc())}}
+            ]
+        }
+        for sub_query in expected_query['$and']:
+            if not sub_query in actual_query['$and']:
+                self.fail()
+
     def test_frontend_script(self):
         with self.app.test_client() as c:
             response = c.get(f'{self.url_base}/script')
@@ -131,32 +172,32 @@ class FrontendAPITest(BaseTest):
             url = f'{self.url_base}/log'
             response = c.post(
                 url,
-                data=dict(type='click'),
+                data=json.dumps({'type': 'click'}),
                 headers={
-                    'Host': 'localhost:9798',
-                    'Connection': 'close',
-                    'Content-Length': '1200',
-                    'User-Agent': 'insomnia/6.3.2',
-                    'Content-Type': 'application/json',
-                    'Sessionid': '1q2w3e4r5t6y', 'Accept': '*/*'
-                },
-                content_type='application/json',
-                follow_redirects=True)
-            self.assertEqual(200, response.status_code)
+                        'Host': 'localhost:9798',
+                        'Connection': 'close',
+                        'Content-Length': '1200',
+                        'User-Agent': 'insomnia/6.3.2',
+                        'Content-Type': 'application/json',
+                        'Sessionid': '1q2w3e4r5t6y', 'Accept': '*/*'
+                    },
+                content_type='application/json')
+            self.assertEqual(500, response.status_code)
+            url = f'{self.url_base}/log'
             response = c.post(
                 url,
-                data=dict(foo='bar'),
+                data=json.dumps({'foo': 'bar'}),
                 headers={
-                    'Host': 'localhost:9798',
-                    'Connection': 'close',
-                    'Content-Length': '1200',
-                    'User-Agent': 'insomnia/6.3.2',
-                    'Content-Type': 'application/json',
-                    'Sessionid': '1q2w3e4r5t6y', 'Accept': '*/*'
-                },
-                content_type='application/json',
-                follow_redirects=True)
+                        'Host': 'localhost:9798',
+                        'Connection': 'close',
+                        'Content-Length': '1200',
+                        'User-Agent': 'insomnia/6.3.2',
+                        'Content-Type': 'application/json',
+                        'Sessionid': '1q2w3e4r5t6y', 'Accept': '*/*'
+                    },
+                content_type='application/json')
             self.assertEqual(400, response.status_code)
+
 
     def test_frontend_log_get(self):
         with self.app.test_client() as c:
@@ -173,23 +214,6 @@ class FrontendAPITest(BaseTest):
             response = c.get(url, headers={'Authorization': f'Bearer {self.user_bearer_token}'})
             self.assertEqual(200, response.status_code)
 
-    def test_frontend_log_change_get(self):
-        with self.app.test_client() as c:
-            response = c.get(f'{self.url_base}/log/change')
-            self.assertEqual(401, response.status_code)
-            given_token = 'invalid token'
-            response = c.get(f'{self.url_base}/log/change', headers={'Authorization': f'Bearer {given_token}'})
-            self.assertEqual(401, response.status_code)
-            response = c.get(f'{self.url_base}/log/change',
-                             headers={'Authorization': f'Bearer {self.user_bearer_token}'})
-            self.assertEqual(400, response.status_code)
-            response = c.get(f'{self.url_base}/log/change/123?username=foo',
-                             headers={'Authorization': f'Bearer {self.user_bearer_token}'})
-            self.assertEqual(200, response.status_code)
-            url = f'{self.url_base}/log/change?usernam=foo&userId=555&from=20190112&to=20190601&projectId=123&requirementId=312'
-            response = c.get(url, headers={'Authorization': f'Bearer {self.user_bearer_token}'})
-            self.assertEqual(200, response.status_code)
-
     def test_frontend_change_get(self):
         with self.app.test_client() as c:
             response = c.get(f'{self.url_base}/change')
@@ -198,10 +222,14 @@ class FrontendAPITest(BaseTest):
             response = c.get(f'{self.url_base}/change', headers={'Authorization': f'Bearer {given_token}'})
             self.assertEqual(401, response.status_code)
             response = c.get(f'{self.url_base}/change', headers={'Authorization': f'Bearer {self.user_bearer_token}'})
-            self.assertEqual(200, response.status_code)
+            self.assertEqual(500, response.status_code)
             # Test with params
-            response = c.get(f'{self.url_base}/change/123?username=foo', headers={'Authorization': f'Bearer {self.user_bearer_token}'})
-            self.assertEqual(200, response.status_code)
+            response = c.get(f'{self.url_base}/change/123?username=foo',
+                             headers={'Authorization': f'Bearer {self.user_bearer_token}'})
+            self.assertEqual(500, response.status_code)
+            response = c.get(f'{self.url_base}/change/123?username=foo',
+                             headers={'Authorization': f'Bearer {self.user_bearer_token}'})
+            self.assertEqual(500, response.status_code)
 
     def test_frontend_log_project_get(self):
         with self.app.test_client() as c:
@@ -217,11 +245,6 @@ class FrontendAPITest(BaseTest):
             response = c.get(f'{self.url_base}/log/{project_id}/{requirement_id}',
                              headers={'Authorization': f'Bearer {self.user_bearer_token}'})
             self.assertEqual(200, response.status_code)
-
-    def test_frontend_log_post(self):
-        with self.app.test_client() as c:
-            response = c.post(f'{self.url_base}/log', )
-            self.assertEqual(400, response.status_code)
 
 
 class BackendAPITest(BaseTest):
