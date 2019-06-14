@@ -258,35 +258,7 @@ def log_get():
     mimetype = 'application/json'
     response_body = json.dumps({})
     try:
-        # Query parameters
-        username_ = request.args.get('username')
-        from_ = request.args.get('from')
-        to_ = request.args.get('to')
-        project_id = request.args.get('projectId')
-        requirement_id = request.args.get('requirementId')
-        query = {}
-        if username_ or from_ or to_ or project_id or requirement_id:
-            query['$and'] = []
-            if username_:
-                sub_query = {'body.username': username_}
-                query['$and'].append(sub_query)
-            if requirement_id:
-                sub_query = {'body.requirementId': username_}
-                query['$and'].append(sub_query)
-            if project_id:
-                sub_query = {'body.projectId': project_id}
-                query['$and'].append(sub_query)
-            if from_:
-                from_ = f'{from_}T00:00:00.000Z'
-                # print(from_)
-                from_parsed = dp.parse(from_)
-                query['$and'].append({'body.isoTime': {'$gte': from_parsed}})
-            if to_:
-                to_ = f'{to_}T00:00:00.000Z'
-                # print(to_)
-                to_parsed = dp.parse(to_)
-                query['$and'].append({'body.isoTime': {'$lte': to_parsed}})
-        # print(query)
+        query = _build_query(request.args)
         response_body = json.dumps({'logs': list(frontend_logs.find(query, {'_id': 0}))}, default=util.serialize)
     except (data_access.ServerSelectionTimeoutError, data_access.NetworkTimeout, Exception) as e:
         http_status = 500
@@ -306,37 +278,11 @@ def log_change_get():
     mimetype = 'application/json'
     response_body = json.dumps({})
     try:
-        # Query parameters
-        username_ = request.args.get('username')
-        from_ = request.args.get('from')
-        to_ = request.args.get('to')
-        project_id = request.args.get('projectId')
-        requirement_id = request.args.get('requirementId')
-        user_id = request.args.get('userId')
-        query = {}
-        # Only query for blur and change events
-        query['$and'] = [{'$or': [{'body.type': 'change'}, {'body.type': 'blur'}]}]
-        if username_ or from_ or to_ or project_id or requirement_id or user_id:
-            if user_id:
-                sub_query = {'body.userId': user_id}
-                query['$and'].append(sub_query)
-            if username_:
-                sub_query = {'body.username': username_}
-                query['$and'].append(sub_query)
-            if requirement_id:
-                sub_query = {'body.requirementId': username_}
-                query['$and'].append(sub_query)
-            if project_id:
-                sub_query = {'body.projectId': project_id}
-                query['$and'].append(sub_query)
-            if from_:
-                from_ = f'{from_}T00:00:00.000Z'
-                from_parsed = dp.parse(from_)
-                query['$and'].append({'body.isoTime': {'$gte': from_parsed}})
-            if to_:
-                to_ = f'{to_}T00:00:00.000Z'
-                to_parsed = dp.parse(to_)
-                query['$and'].append({'body.isoTime': {'$lte': to_parsed}})
+        request_args = request.args
+        if request_args and 'projectId' in request_args:
+            project_id = request.args.get('projectId')
+            # Only query for blur and change events
+            query = _build_query(request.args, {'$and': [{'$or': [{'body.type': 'change'}, {'body.type': 'blur'}]}]})
             query_result = list(frontend_logs.find(query, {'_id': 0}))
             change_count = Counter(log['body']['targetclassName'] for log in query_result)
             result = {
@@ -422,6 +368,31 @@ def get_logger_script():
         current_app.logger.debug(f'Responding with code: {http_status}')
         response = Response(response=response_body, status=http_status, mimetype=mimetype)
         return response
+
+
+def _build_query(parameters: dict, base_query: dict = {'$and': []}):
+    """
+    Build a query to get logs by parameters
+    :param parameters: Dict of parameters specified by the API.
+    :param base_query: A base query where to add sub_queries to.
+    :return:
+    """
+    # Query parameters
+    query = base_query
+    for k, v in parameters.items():
+        # Ignore parameter if value is made up of space characters only
+        if not v.isspace():
+            if k == 'from' or k == 'to':
+                iso_date_string = f'{v}T00:00:00.000Z'
+                iso_date = dp.parse(iso_date_string)
+                if k == 'from':
+                    query['$and'].append({'body.isoTime': {'$gte': iso_date}})
+                elif k == 'to':
+                    query['$and'].append({'body.isoTime': {'$lte': iso_date}})
+            else:
+                sub_query = {f'body.{k}': v}
+                query['$and'].append(sub_query)
+    return query
 
 
 if __name__ == '__main__':
