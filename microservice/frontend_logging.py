@@ -8,7 +8,6 @@ import copy
 import json
 import os
 import re
-from collections import Counter
 
 import dateutil.parser as dp
 from flask import Blueprint, Response, current_app, request, Flask
@@ -240,7 +239,7 @@ def changes_get(project_id):
             item['changeCount'] = change_count
             result.append(item)
         response_body = json.dumps({'changes': result}, default=util.serialize)
-    except (data_access.ServerSelectionTimeoutError, data_access.NetworkTimeout, Exception) as e:
+    except (Exception) as e:
         http_status = 500
         mimetype = 'application/json'
         current_app.logger.error(f'Error: {e}')
@@ -293,11 +292,11 @@ def log_post():
         frontend_logs.insert_one(log_dict)
         response_text = 'Saved to database.'
         http_status = 200
-    except (TypeError, KeyError) as e:
+    except (TypeError, KeyError, AttributeError) as e:
         http_status = 400
         response_text = 'Log is missing in the request or Missing property "type" in the log.'
         current_app.logger.debug(f'Responding with code: {http_status}. Caused by {e}')
-    except (data_access.ServerSelectionTimeoutError, data_access.NetworkTimeout, AttributeError)as e:
+    except Exception as e:
         current_app.logger.error(f'Database error: {e}')
         response_text = f'Could not save to database: {e}'
         mimetype = 'text/plain'
