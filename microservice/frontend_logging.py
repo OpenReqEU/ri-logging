@@ -271,43 +271,6 @@ def log_get():
         return response
 
 
-@api.route('/log/change', methods=['GET'])
-@auth.auth_single
-def log_change_get():
-    http_status = 200
-    mimetype = 'application/json'
-    response_body = json.dumps({})
-    try:
-        request_args = request.args
-        if request_args and 'projectId' in request_args:
-            project_id = request.args.get('projectId')
-            # Only query for blur and change events
-            query = _build_query(request.args, {'$and': [{'$or': [{'body.type': 'change'}, {'body.type': 'blur'}]}]})
-            query_result = list(frontend_logs.find(query, {'_id': 0}))
-            change_count = Counter(log['body']['targetclassName'] for log in query_result)
-            result = {
-                'projectId': project_id,
-                'title': change_count['or-requirement-title'],
-                'description': change_count['note-editable'],
-                'status': change_count['select-dropdown']
-            }
-            response_body = json.dumps({'logs': result}, default=util.serialize)
-        else:
-            http_status = 400
-            mimetype = 'application/json'
-            current_app.logger.error(f'Bad Request, responding with status 400')
-            response_body = json.dumps({'message': 'The request must contain at least on query parameter.'})
-    except (data_access.ServerSelectionTimeoutError, data_access.NetworkTimeout, Exception) as e:
-        http_status = 500
-        mimetype = 'application/json'
-        current_app.logger.error(f'Error: {e}')
-        response_body = json.dumps({'message': f'Something went wrong.'})
-    finally:
-        response = Response(response=response_body, status=http_status, mimetype=mimetype)
-        current_app.logger.debug(f'Responding with code: {http_status}')
-        return response
-
-
 @api.route('/log', methods=['POST'])
 def log_post():
     """
