@@ -49,6 +49,11 @@ class BaseTest(unittest.TestCase):
         os.environ['LOGGING_LEVEL'] = 'DEBUG'
         cls.app = microservice.create_app('config_test.json')
 
+    def test_generic_errors(self):
+        with self.app.test_client() as c:
+            c.get('/some/nonsense/url')
+            c.post('/some/nonsense/url', data=json.dumps({'foo': 'bar'}))
+
     @classmethod
     def tearDownClass(cls):
         try:
@@ -198,7 +203,6 @@ class FrontendAPITest(BaseTest):
                 content_type='application/json')
             self.assertEqual(400, response.status_code)
 
-
     def test_frontend_log_get(self):
         with self.app.test_client() as c:
             response = c.get(f'{self.url_base}/log')
@@ -266,9 +270,9 @@ class BackendAPITest(BaseTest):
     def test_backend_logfile_get(self):
         with self.app.test_client() as c:
             logfile = tempfile.NamedTemporaryFile(dir=self.dir_backend_log, suffix='.log')
+            filename = logfile.name
+            filename = filename.split('/')[-1]
             with logfile:
-                filename = logfile.name
-                filename = filename.split('/')[-1]
                 response = c.get(f'{self.url_base}/log/{filename}')
                 self.assertEqual(401, response.status_code)
                 response = c.get(f'{self.url_base}/log/{filename}',
@@ -280,6 +284,21 @@ class BackendAPITest(BaseTest):
                 response = c.get(f'{self.url_base}/log/{filename}',
                                  headers={'Authorization': f'Bearer {self.user_bearer_token}'})
                 self.assertEqual(404, response.status_code)
+
+            response = c.get(f'{self.url_base}/log/{filename}',
+                             headers={'Authorization': f'Bearer {self.user_bearer_token}'})
+            self.assertEqual(404, response.status_code)
+
+            logfile = tempfile.NamedTemporaryFile(dir=self.dir_backend_log, suffix='.gz')
+            filename = logfile.name
+            filename = filename.split('/')[-1]
+            with logfile:
+                response = c.get(f'{self.url_base}/log/{filename}',
+                                 headers={'Authorization': f'Bearer {self.user_bearer_token}'})
+                self.assertEqual(200, response.status_code)
+                response = c.get(f'{self.url_base}/log/{filename}?format=text',
+                                 headers={'Authorization': f'Bearer {self.user_bearer_token}'})
+                self.assertEqual(200, response.status_code)
 
     def test_import_logfiles_into_db(self):
         logs0 = f'''123.123.12.123 - 11111aaaaa11111aaaaa11111aaaaa11111aaaaa [11/Jun/2019:05:28:00 +0000] "GET /this/is/a/path HTTP/1.1" 0.009 0.009 200 3470 "-" "ScannerCli/3.3.0.1492" "-"
@@ -295,8 +314,8 @@ class BackendAPITest(BaseTest):
 123.123.12.123 - - [11/Jun/2019:07:56:02 +0000] "GET /this/is/another/path HTTP/1.1" 210.919 185.142 302 255958653 "-" "Apache-HttpClient/4.5.3 (Java/11.0.3)" "-"
 '''
         # Create multiple logfiles
-        logfile0 = tempfile.NamedTemporaryFile(dir=self.dir_backend_log, suffix='.log')
-        logfile1 = tempfile.NamedTemporaryFile(dir=self.dir_backend_log, suffix='.log')
+        logfile0 = tempfile.NamedTemporaryFile(dir=self.dir_backend_log, suffix='.gz')
+        logfile1 = tempfile.NamedTemporaryFile(dir=self.dir_backend_log, suffix='.gz')
         logs0 = str.encode(logs0)
         logs1 = str.encode(logs1)
         logfile0.write(logs0)
