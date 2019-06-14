@@ -39,13 +39,6 @@ class MongoDBConnection():
                                  serverSelectionTimeoutMS=self.connect_timeout)
         try:
             logger.debug(client.server_info())
-            try:
-                # Check if admin
-                logger.debug(client.list_database_names())
-                logger.debug(client['admin'].list_collection_names())
-                logger.debug('Connected as admin')
-            except OperationFailure:
-                logger.debug('Connected as user')
         except Exception as e:
             logger.debug(e)
         finally:

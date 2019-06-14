@@ -51,43 +51,6 @@ def authenticate():
         headers={'WWW-Authenticate': 'Bearer'}, content_type='application/json'
     )
 
-
-def requires_multiple(arg):
-    """
-    Decorator function that takes arguments and calls the decorator that decorates the actual function.
-    The function that requires authentication for certain HTTP methods should have the @requires_auth(arg) annotation.
-    :param arg: List of HTTP methods that require auth.
-    :return: The decorator function.
-    """
-
-    def decorator(func):
-        """
-        Decorator function that takes the decorated function as parameter.
-        :param func:
-        :return:
-        """
-
-        @wraps(func)
-        def decorated(*args, **kwargs):
-            """
-            The authentication happens here.
-            :param args: Positional arguments.
-            :param kwargs: Keyword arguments.
-            :return: The actual decorated function (that has the @ annotation above it.)
-            """
-            method = request.method
-            # Authorize only the HTTP methods that were passed to the decorator.
-            if method in arg:
-                bearer_token = request.headers.get('Authorization')
-                if not bearer_token or not bearer_token_auth(bearer_token):
-                    return authenticate()
-            return func(*args, **kwargs)
-
-        return decorated
-
-    return decorator
-
-
 def auth_single(f):
     """
     Decorator function that to enable auth for API functions.
