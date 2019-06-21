@@ -114,8 +114,7 @@ The access to the frontend and backend logs is documented in the included Swagge
 
 ### Notes for Developers
 
-The configuration and installation for development is the same as the shell version. Additionally the `config.json` file can be recreated on every run if 
-the microservice is executed with `run_dev.py`. The environment variable assignments have to be updated accordingly in the `run_dev.py` file.
+The configuration and installation for development is the same as the shell version. But requires the `config_dev.json` file to be in the root directory. The file can be created by duplicating the `config_base.json` and filling it with config values. 
 
 #### Updating requirements.txt
 
