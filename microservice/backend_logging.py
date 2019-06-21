@@ -260,6 +260,36 @@ def log_get(log_name):
         return response
 
 
+@api.route('/db/log', methods=['POST'])
+@auth.auth_single
+def log_import_to_db():
+    """
+    :reqheader Accept: application/json
+    Return all logfile names.
+    :return: The filenames for all backend debug_logs as json.
+    """
+    current_app.logger.info(
+        f'Processing backend log {request.method} request from remote address: {request.remote_addr}')
+    response_body = ''
+    content_type = 'application/json'
+    http_status = 200
+    try:
+        before = backend_logs.count_documents({})
+        import_logs_to_db(current_app)
+        after = backend_logs.count_documents({})
+        response_body = json.dumps({'message': f'Imported {after - before} log entries into DB.'})
+        http_status = 200
+    except Exception as e:
+        current_app.logger.error(f'OS error: {e}')
+        response_body = json.dumps({'message': 'Internal error.'})
+        content_type = 'application/json'
+        http_status = 500
+    finally:
+        response = Response(response=response_body, status=http_status, content_type=content_type)
+        current_app.logger.info(f'Responding with code: {http_status}')
+        return response
+
+
 def import_logs_to_db(app_object: Flask):
     """
     Imports all gzipped access logs into the DB excluding already imported files and the current log file.
