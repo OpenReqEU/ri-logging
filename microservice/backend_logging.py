@@ -124,7 +124,7 @@ def __init_scheduler(app_object: Flask):
 
 @api.route('/db/log', methods=['GET'])
 @auth.auth_single
-def db_logs_get():
+def db_logs_post():
     """
     :reqheader Accept: application/json
     Return all logfile names.
