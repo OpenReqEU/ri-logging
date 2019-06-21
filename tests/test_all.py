@@ -154,7 +154,6 @@ class FrontendAPITest(BaseTest):
         actual_query = frontend_logging._build_query(parameters, base_query)
         expected_query = {
             '$and': [
-                {'$or': [{'body.type': 'change'}, {'body.type': 'blur'}]},
                 {'body.username': 'user name'},
                 {'body.userId': '1475'},
                 {'body.requirementId': '11'},
