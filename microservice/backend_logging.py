@@ -136,7 +136,7 @@ def db_logs_get():
     content_type = 'application/json'
     http_status = 200
     try:
-        query = {}
+        query = _build_query(request.args)
         query_result = list(backend_logs.find(query, {'_id': 0}))
         response_body = json.dumps({'logs': query_result}, default=util.serialize)
         content_type = 'application/json'
@@ -150,6 +150,33 @@ def db_logs_get():
         response = Response(response=response_body, status=http_status, content_type=content_type)
         current_app.logger.debug(f'Responding with code: {http_status}')
         return response
+
+
+def _build_query(parameters: dict, base_query: dict = {}):
+    """
+    Build a query to get logs by parameters
+    :param parameters: Dict of parameters specified by the API.
+    :param base_query: A base query where to add sub_queries to.
+    :return:
+    """
+    # Query parameters
+    query = base_query
+    if bool(parameters):
+        query = {'$and': []}
+        for k, v in parameters.items():
+            # Ignore parameter if value is made up of space characters only
+            if not v.isspace():
+                if k == 'from' or k == 'to':
+                    iso_date_string = f'{v}T00:00:00.000Z'
+                    iso_date = datutil_parser.parse(iso_date_string)
+                    if k == 'from':
+                        query['$and'].append({'isoDate': {'$gte': iso_date}})
+                    elif k == 'to':
+                        query['$and'].append({'isoDate': {'$lte': iso_date}})
+                else:
+                    sub_query = {k: v}
+                    query['$and'].append(sub_query)
+    return query
 
 
 @api.route('/log', methods=['GET'])
