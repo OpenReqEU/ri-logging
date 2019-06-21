@@ -454,7 +454,22 @@ class NginxLogConverter:
             :param val: The input value; A string representation of a float value or a hyphen character.
             :return: The float value or -1
             """
-            return -1 if val == '-' or not val else float(val)
+            # Default value is -1
+            result = -1
+            # If the value matches the specific format e.g. "0.000, 0.000"
+            if re.match(r'(\d\.\d{3},\s\d\.\d{3})', val):
+                try:
+                    result = float(val.split(', ')[0])
+                except:
+                    pass
+            # If not try direct float conversion
+            else:
+                try:
+                    result = float(val)
+                except:
+                    pass
+            return result
+
         try:
             document = {
                 'remoteAddress': log_object['remote_address'],
