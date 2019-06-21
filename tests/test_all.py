@@ -460,6 +460,25 @@ class NginxLogConverterTest(BaseTest):
         }
         given_log_object = self.nlc._log_entry_to_log_object(log_entry)
         self.assertEqual(expected_log_object, given_log_object)
+        log_entry = '93.42.98.74 - - [10/May/2019:08:42:49 +0000] "GET ' \
+                    '/ri-something ' \
+                    'HTTP/2.0" 500 49 "http://bla.io/" ' \
+                    '"Foo Bar" "-"'
+        expected_log_object = {
+            'remote_address': '93.42.98.74',
+            'remote_user': '-',
+            'time_local': '10/May/2019:08:42:49 +0000',
+            'request': 'GET /ri-something HTTP/2.0',
+            'request_time': None,
+            'upstream_response_time': None,
+            'status': '500',
+            'body_bytes_sent': '49',
+            'http_referer': 'http://bla.io/',
+            'http_user_agent': 'Foo Bar',
+            'gzip_ratio': '-',
+        }
+        given_log_object = self.nlc._log_entry_to_log_object(log_entry)
+        self.assertEqual(expected_log_object, given_log_object)
         # Test exception
         try:
             # Remove the remote address from string so it would fail
