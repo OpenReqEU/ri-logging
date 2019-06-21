@@ -358,8 +358,8 @@ class NginxLogConverter:
         \s-\s(?P<remote_user>((([a-zA-Z0-9]){40})|-))  # remote user (hyphen if no userId)
         \s\[(?P<time_local>(\d{2}\/[a-zA-Z]{3}\/\d{4}:\d{2}:\d{2}:\d{2}\s(\+|\-)\d{4}))\] # Datetime
         \s"(?P<request>((GET|HEAD|POST|PUT|DELETE|CONNECT|OPTIONS|TRACE|PATCH)\s\/(.+)?\sHTTP\/\d\.\d))" # The HTTTP Request
-        \s(?P<request_time>(\d+\.\d+)) # Full request time, starting when NGINX reads the first byte from the client and ending when NGINX sends the last byte of the response body.
-        \s(?P<upstream_response_time>((\d+\.\d{3},?)(\s\d+\.\d{3})?|-)) #  Time between establishing a connection to an upstream server and receiving the last byte of the response body.
+        (\s(?P<request_time>(\d+\.\d+)))? # Full request time, starting when NGINX reads the first byte from the client and ending when NGINX sends the last byte of the response body.
+        (\s(?P<upstream_response_time>((\d+\.\d{3},?)(\s\d+\.\d{3})?|-)))? #  Time between establishing a connection to an upstream server and receiving the last byte of the response body.
         \s(?P<status>(\d{3})) # HTTP status code.
         \s(?P<body_bytes_sent>(\d+)) # The size of the request.
         \s"(?P<http_referer>(.+))" # The url where the request is coming from.
@@ -454,7 +454,7 @@ class NginxLogConverter:
             :param val: The input value; A string representation of a float value or a hyphen character.
             :return: The float value or -1
             """
-            return -1 if val == '-' else float(val)
+            return -1 if val == '-' or not val else float(val)
         try:
             document = {
                 'remoteAddress': log_object['remote_address'],
