@@ -152,7 +152,7 @@ def db_logs_get():
         return response
 
 
-def _build_query(parameters: dict, base_query: dict = {}):
+def _build_query(parameters: dict, base_query: dict = None):
     """
     Build a query to get logs by parameters
     :param parameters: Dict of parameters specified by the API.
@@ -160,7 +160,7 @@ def _build_query(parameters: dict, base_query: dict = {}):
     :return:
     """
     # Query parameters
-    query = base_query
+    query = base_query if base_query else {}
     if bool(parameters):
         query = {'$and': []}
         for k, v in parameters.items():

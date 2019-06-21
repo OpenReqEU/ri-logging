@@ -332,7 +332,7 @@ def get_logger_script():
         return response
 
 
-def _build_query(parameters: dict, base_query: dict = {'$and': []}):
+def _build_query(parameters: dict, base_query: dict = None):
     """
     Build a query to get logs by parameters
     :param parameters: Dict of parameters specified by the API.
@@ -340,20 +340,22 @@ def _build_query(parameters: dict, base_query: dict = {'$and': []}):
     :return:
     """
     # Query parameters
-    query = base_query
-    for k, v in parameters.items():
-        # Ignore parameter if value is made up of space characters only
-        if not v.isspace():
-            if k == 'from' or k == 'to':
-                iso_date_string = f'{v}T00:00:00.000Z'
-                iso_date = dp.parse(iso_date_string)
-                if k == 'from':
-                    query['$and'].append({'body.isoTime': {'$gte': iso_date}})
-                elif k == 'to':
-                    query['$and'].append({'body.isoTime': {'$lte': iso_date}})
-            else:
-                sub_query = {f'body.{k}': v}
-                query['$and'].append(sub_query)
+    query = base_query if base_query else {}
+    if bool(parameters):
+        query = {'$and': []}
+        for k, v in parameters.items():
+            # Ignore parameter if value is made up of space characters only
+            if not v.isspace():
+                if k == 'from' or k == 'to':
+                    iso_date_string = f'{v}T00:00:00.000Z'
+                    iso_date = dp.parse(iso_date_string)
+                    if k == 'from':
+                        query['$and'].append({'body.isoTime': {'$gte': iso_date}})
+                    elif k == 'to':
+                        query['$and'].append({'body.isoTime': {'$lte': iso_date}})
+                else:
+                    sub_query = {f'body.{k}': v}
+                    query['$and'].append(sub_query)
     return query
 
 
