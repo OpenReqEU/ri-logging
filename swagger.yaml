@@ -1,227 +1,380 @@
 openapi: 3.0.0
 info:
-  description: This API is used to collect implicit feedback form the OpenReq UI.
-  version: "1.0.0-oas3"
   title: Logging API
+  description: This API is used to collect implicit feedback form the OpenReq UI.
   contact:
     email: biryuk@informatik.uni-hamburg.de
+  version: 1.0.1-oas3
+servers:
+  - url: https://api.openreq.eu/ri-logging
 paths:
   /frontend/script:
     get:
       summary: Get the JavaScript library for front end logging .
-      description: >-
-        Get the logging JavaScript library that logs the user interaction in the
-        browser.
+      description: Get the logging JavaScript library that logs the user interaction
+        in the browser.
       operationId: get_logger_script
       responses:
-        '200':
+        200:
           description: The JavaScript file.
-        '404':
+        404:
           description: The JavaScript file could not be found.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    description: The error description message.
+                $ref: '#/components/schemas/inline_response_404'
   /frontend/log:
     get:
       summary: Get the front end log.
       description: Get all the log entries of the user interactions (implicit feedback).
       operationId: fe_log_get
-      security:
-        - Bearer: []
       responses:
-        '200':
+        200:
           description: The log.
           content:
             '*/*':
               schema:
                 $ref: '#/components/schemas/FrontendLogResponse'
-        '500':
+        500:
           description: The log database could not be accessed or uenxpected error.
           content:
             '*/*':
               schema:
                 $ref: '#/components/schemas/ResponseMessage'
+      security:
+        - Bearer: []
     post:
       summary: Log interaction.
-      description: >-
-        Save a browser event, adding further preoperties like the remote
+      description: Save a browser event, adding further preoperties like the remote
         IP-address.
+      requestBody:
+        description: The log must at least contain the "type" (browser event type)
+          attribute.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FrontEndLogEntry'
+        required: true
       responses:
-        '200':
+        200:
           description: Log entry successfully stored.
-        '400':
-          description: Log is missing in the request or Missing property "type" in the log.
+        400:
+          description: Log is missing in the request or Missing property "type" in
+            the log.
           content:
             '*/*':
               schema:
                 $ref: '#/components/schemas/ResponseMessage'
-        '500':
+        500:
           description: The log could not be saved to database.
           content:
             '*/*':
               schema:
                 $ref: '#/components/schemas/ResponseMessage'
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/FrontEndLogEntry'
-        description: >-
-          The log must at least contain the "type" (browser event type)
-          attribute.
-        required: true
   /frontend/change:
     get:
-      parameters:
-        - in: query
-          name: username
-          schema:
-            type: string
-          description: The username of the user who's changes are to be fetched.
       summary: Get the number of changes to requirement elements.
-      description: >-
-        Get the number of changes (title, description, status) per requirement
+      description: Get the number of changes (title, description, status) per requirement
         entry.
       operationId: fe_change
-      security:
-        - Bearer: []
+      parameters:
+        - name: username
+          in: query
+          description: The username of the user who's changes are to be fetched.
+          required: false
+          style: form
+          explode: true
+          schema:
+            type: string
       responses:
-        '200':
+        200:
           description: The changes.
           content:
             '*/*':
               schema:
                 $ref: '#/components/schemas/FrontendChangeResponse'
-        '500':
+        500:
           description: The log database could not be accessed or uenxpected error.
           content:
             '*/*':
               schema:
                 $ref: '#/components/schemas/ResponseMessage'
+      security:
+        - Bearer: []
   /frontend/change/{projectId}:
     get:
-      parameters:
-        - in: query
-          name: username
-          schema:
-            type: string
-          description: The username of the user who's changes are to be fetched.
-        - in: path
-          name: projectId
-          schema:
-            type: string
-          required: true
-          description: >-
-            The project ID.
-      summary: >-
-        Get the number of changes to requirement elements for a project.
-      description: >-
-        Get the number of changes (title, description, status) per requirement for a given project.
+      summary: Get the number of changes to requirement elements for a project.
+      description: Get the number of changes (title, description, status) per requirement
+        for a given project.
       operationId: fe_change_project
-      security:
-        - Bearer : [] 
+      parameters:
+        - name: username
+          in: query
+          description: The username of the user who's changes are to be fetched.
+          required: false
+          style: form
+          explode: true
+          schema:
+            type: string
+        - name: projectId
+          in: path
+          description: The project ID.
+          required: true
+          style: simple
+          explode: false
+          schema:
+            type: string
       responses:
-        '200':
+        200:
           description: The changes.
           content:
             '*/*':
               schema:
                 $ref: '#/components/schemas/FrontendChangeResponseProject'
-        '500':
+        500:
           description: The log database could not be accessed or uenxpected error.
           content:
             '*/*':
               schema:
                 $ref: '#/components/schemas/ResponseMessage'
-  /backend/log:
-    get:
-      summary: Get the filenames of the backend logs.
-      description: >-
-        Get all the file names of the backend server logs that reside in the
-        mapped directory.
-      operationId: be_logs_get
       security:
         - Bearer: []
+  /admin/{collectionName}/remove:
+    delete:
+      summary: Delete all documents in a given collection.
+      description: Delete all documents in a given collection.
+      operationId: delete_documents
+      parameters:
+        - name: collectionName
+          in: path
+          description: The MongoDB collection name.
+          required: true
+          style: simple
+          explode: false
+          schema:
+            type: string
       responses:
-        '200':
+        200:
+          description: The number of delted documents.
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/CollectionDeleteResponse'
+        500:
+          description: The log database could not be accessed or uenxpected error.
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ResponseMessage'
+      security:
+        - Bearer: []
+  /admin/{collectionName}/export:
+    get:
+      summary: Export all documents of a given collection.
+      description: Export all documents of a given collection as JSON.
+      operationId: export_documents
+      parameters:
+        - name: collectionName
+          in: path
+          description: The MongoDB collection name.
+          required: true
+          style: simple
+          explode: false
+          schema:
+            type: string
+      responses:
+        200:
+          description: The exported documents.
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/CollectionDeleteResponse'
+        500:
+          description: The log database could not be accessed or uenxpected error.
+          content:
+            '*/*':
+              schema:
+                $ref: '#/components/schemas/ResponseMessage'
+      security:
+        - Bearer: []
+  /backend/db/log:
+    get:
+      operationId: db_logs_get
+      parameters:
+        - name: from
+          in: query
+          description: The date from which to select logs.
+          required: false
+          style: form
+          explode: true
+          schema:
+            type: string
+        - name: to
+          in: query
+          description: The date to which to select logs.
+          required: false
+          style: form
+          explode: true
+          schema:
+            type: string
+        - name: remoteAddr
+          in: query
+          description: The IP address of the client.
+          required: false
+          style: form
+          explode: true
+          schema:
+            type: string
+        - name: status
+          in: query
+          description: The HTTP status code of the respons.
+          required: false
+          style: form
+          explode: true
+          schema:
+            type: string
+      responses:
+        200:
           description: Log text.
           content:
             application/json; charset=utf-8:
               schema:
                 type: object
                 example: This is a log.
-        '401':
-          description: >-
-            No Authorization was was provided in the header or the authorization
+        401:
+          description: No Authorization was was provided in the header or the authorization
             token is invalid.
           headers:
             WWW-Authenticate:
               description: Authentication hint.
+              style: simple
+              explode: false
               schema:
                 type: string
           content:
             application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/ResponseMessage'
-        '500':
+        500:
           description: The log could not be found or could not reach the database.
           content:
             application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/ResponseMessage'
-  '/backend/log/{filename}':
-    get:
-      summary: Gets a log by filename.
-      parameters:
-        - in: path
-          name: filename
-          required: true
-          description: The log file name.
-          schema:
-            type: string
-      description: Get all the logged backend interactions.
-      operationId: be_log_get
       security:
         - Bearer: []
+    post:
+      operationId: db_logs_post
       responses:
-        '200':
+        200:
+          description: The response message containig the number of imported log entrie
+            into the DB.
+          content:
+            application/json; charset=utf-8:
+              schema:
+                $ref: '#/components/schemas/BackendLogResponse'
+        401:
+          description: No Authorization was was provided in the header or the authorization
+            token is invalid.
+          headers:
+            WWW-Authenticate:
+              description: Authentication hint.
+              style: simple
+              explode: false
+              schema:
+                type: string
+          content:
+            application/json; charset=utf-8:
+              schema:
+                $ref: '#/components/schemas/ResponseMessage'
+        500:
+          description: The log could not be found or could not reach the database.
+          content:
+            application/json; charset=utf-8:
+              schema:
+                $ref: '#/components/schemas/ResponseMessage'
+      security:
+        - Bearer: []
+  /backend/log:
+    get:
+      summary: Get the filenames of the backend logs.
+      description: Get all the file names of the backend server logs that reside in
+        the mapped directory.
+      operationId: be_logs_get
+      responses:
+        200:
+          description: Log text.
+          content:
+            application/json; charset=utf-8:
+              schema:
+                type: object
+                example: This is a log.
+        401:
+          description: No Authorization was was provided in the header or the authorization
+            token is invalid.
+          headers:
+            WWW-Authenticate:
+              description: Authentication hint.
+              style: simple
+              explode: false
+              schema:
+                type: string
+          content:
+            application/json; charset=utf-8:
+              schema:
+                $ref: '#/components/schemas/ResponseMessage'
+        500:
+          description: The log could not be found or could not reach the database.
+          content:
+            application/json; charset=utf-8:
+              schema:
+                $ref: '#/components/schemas/ResponseMessage'
+      security:
+        - Bearer: []
+  /backend/log/{filename}:
+    get:
+      summary: Gets a log by filename.
+      description: Get all the logged backend interactions.
+      operationId: be_log_get
+      parameters:
+        - name: filename
+          in: path
+          description: The log file name.
+          required: true
+          style: simple
+          explode: false
+          schema:
+            type: string
+      responses:
+        200:
           description: Log JSON.
           content:
             application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/BackendLogResponse'
-        '401':
-          description: >-
-            No Authorization was was provided in the header or the authorization
+        401:
+          description: No Authorization was was provided in the header or the authorization
             token is invalid.
           headers:
             WWW-Authenticate:
               description: Authentication hint.
+              style: simple
+              explode: false
               schema:
                 type: string
           content:
             application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/ResponseMessage'
-        '500':
+        500:
           description: The log could not be found or could not reach the database.
           content:
             application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/ResponseMessage'
-servers:
-  - url: 'https://api.openreq.eu/ri-logging'
+      security:
+        - Bearer: []
 components:
-  securitySchemes:
-    Bearer:
-      type: apiKey
-      in: header
-      name: Authorization
   schemas:
     FrontEndLogEntry:
       type: object
@@ -241,20 +394,7 @@ components:
         logs:
           type: array
           items:
-            type: object
-            properties:
-              ip:
-                type: string
-                example: 127.0.0.1
-              event_type:
-                type: string
-                example: click
-              header:
-                type: object
-                example: {}
-              body:
-                type: object
-                example: {}
+            $ref: '#/components/schemas/FrontendLogResponse_logs'
         message:
           type: string
           example: The response message.
@@ -264,46 +404,14 @@ components:
         changes:
           type: array
           items:
-            type: object
-            properties:
-              projectId:
-                type: string
-                example: project123
-              changeCount:
-                type: object
-                properties:
-                  descritpion:
-                    type: string
-                    example: This is a new description.
-                  status:
-                    type: string
-                    example: This is a new status.
-                  title:
-                    type: string
-                    example: This is a new title.
+            $ref: '#/components/schemas/FrontendChangeResponse_changes'
     FrontendChangeResponseProject:
       type: object
       properties:
         changes:
           type: array
           items:
-            type: object
-            properties:
-              requrementId:
-                type: string
-                example: '112'
-              changeCount:
-                type: object
-                properties:
-                  descritpion:
-                    type: string
-                    example: This is a new description.
-                  status:
-                    type: string
-                    example: This is a new status.
-                  title:
-                    type: string
-                    example: This is a new title.
+            $ref: '#/components/schemas/FrontendChangeResponseProject_changes'
     BackendLogResponse:
       type: object
       properties:
@@ -312,3 +420,69 @@ components:
         message:
           type: string
           example: The response message.
+    CollectionDeleteResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: The response message indicating the number of deleted documents.
+    CollectionDump:
+      type: object
+      properties:
+        message:
+          type: string
+          example: The response message indicating the number of deleted documents.
+    inline_response_404:
+      type: object
+      properties:
+        message:
+          type: string
+          description: The error description message.
+    FrontendLogResponse_logs:
+      type: object
+      properties:
+        ip:
+          type: string
+          example: 127.0.0.1
+        event_type:
+          type: string
+          example: click
+        header:
+          type: object
+          example: {}
+        body:
+          type: object
+          example: {}
+    FrontendChangeResponse_changeCount:
+      type: object
+      properties:
+        descritpion:
+          type: string
+          example: This is a new description.
+        status:
+          type: string
+          example: This is a new status.
+        title:
+          type: string
+          example: This is a new title.
+    FrontendChangeResponse_changes:
+      type: object
+      properties:
+        projectId:
+          type: string
+          example: project123
+        changeCount:
+          $ref: '#/components/schemas/FrontendChangeResponse_changeCount'
+    FrontendChangeResponseProject_changes:
+      type: object
+      properties:
+        requrementId:
+          type: string
+          example: "112"
+        changeCount:
+          $ref: '#/components/schemas/FrontendChangeResponse_changeCount'
+  securitySchemes:
+    Bearer:
+      type: apiKey
+      name: Authorization
+      in: header
