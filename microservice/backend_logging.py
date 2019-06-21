@@ -122,6 +122,36 @@ def __init_scheduler(app_object: Flask):
     return None
 
 
+@api.route('/db/log', methods=['GET'])
+@auth.auth_single
+def logs_get():
+    """
+    :reqheader Accept: application/json
+    Return all logfile names.
+    :return: The filenames for all backend debug_logs as json.
+    """
+    current_app.logger.info(
+        f'Processing backend log {request.method} request from remote address: {request.remote_addr}')
+    response_body = ''
+    content_type = 'application/json'
+    http_status = 200
+    try:
+        query = {}
+        query_result = list(backend_logs.find(query, {'_id': 0}))
+        response_body = json.dumps({'logs': query_result}, default=util.serialize)
+        content_type = 'application/json'
+        http_status = 200
+    except Exception as e:
+        http_status = 500
+        content_type = 'application/json'
+        current_app.logger.error(f'Error: {e}')
+        response_body = json.dumps({'message': f'Something went wrong.'})
+    finally:
+        response = Response(response=response_body, status=http_status, content_type=content_type)
+        current_app.logger.debug(f'Responding with code: {http_status}')
+        return response
+
+
 @api.route('/log', methods=['GET'])
 @auth.auth_single
 def logs_get():
