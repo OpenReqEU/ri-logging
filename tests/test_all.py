@@ -519,6 +519,38 @@ class NginxLogConverterTest(BaseTest):
         expected_document['path'] = '/this/is/a/path'
         expected_document['protocol'] = 'HTTP/1.1'
         self.assertEqual(expected_document, given_document)
+        log_object = {
+            'remote_address': '217.172.12.199',
+            'remote_user': '3332v17ac8g179541c6c67574202811111d44377',
+            'time_local': '11/Jun/2019:08:49:39 +0000',
+            'request': 'POST /this/is/a/path HTTP/1.1',
+            'request_time': '0.578',
+            'upstream_response_time': '0.578, 0.000',
+            'status': '200',
+            'body_bytes_sent': '110',
+            'http_referer': '-',
+            'http_user_agent': 'Go-http-client/1.1',
+            'gzip_ratio': '-',
+        }
+        expected_document = {
+            'remoteAddress': '217.172.12.199',
+            'remoteUser': '3332v17ac8g179541c6c67574202811111d44377',
+            'timeLocal': datetime.datetime(2019, 6, 11, 8, 49, 39, tzinfo=tzutc()),
+            'request': 'POST /this/is/a/path HTTP/1.1',
+            'requestTime': 0.578,
+            'upstreamResponseTime': 0.578,
+            'status': '200',
+            'bodyBytesSent': 110,
+            'httpReferer': '-',
+            'httpUserAgent': 'Go-http-client/1.1',
+            'gzipRatio': '-'
+        }
+        given_document = self.nlc._log_object_to_document(log_object)
+        self.assertNotEqual(expected_document, given_document)
+        expected_document['httpMethod'] = 'POST'
+        expected_document['path'] = '/this/is/a/path'
+        expected_document['protocol'] = 'HTTP/1.1'
+        self.assertEqual(expected_document, given_document)
         try:
             # Remove the remote address from string so it would fail
             del log_object['remote_address']
