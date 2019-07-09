@@ -105,7 +105,7 @@ def init_script(app_object: Flask):
         full_path = os.path.join(dirname, 'logger.js')
         file = util.read_file(full_path)
         endpoint_url = app_object.config['API_URL']
-        file = re.sub(r'(const endpoint_url = "";)', f'const endpoint_url = "{endpoint_url}";', file)
+        file = re.sub(r'("receiver": "",)', f'"receiver": "{endpoint_url}",', file)
         # Minify js file
         file = jsmin(file)
         # Obfuscate js file

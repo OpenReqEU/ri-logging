@@ -640,7 +640,7 @@ $(document).ready(function () {
 	 */
 	let ri_logging_configuration =
 		{
-			"receiver": "https://api.openreq.eu/ri-logging/frontend/log",
+			"receiver": "",
 			"debug": {
 				"enabled": true,
 				"console": {
