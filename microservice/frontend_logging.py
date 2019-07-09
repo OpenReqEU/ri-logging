@@ -85,7 +85,7 @@ def init_db_connection(app_object: Flask):
             connect_timeout=connect_timeout
         ).client
         db = client[app_object.config['DB_NAME_FRONTEND_LOGS']]
-        frontend_logs = db['log']
+        frontend_logs = db[app_object.config['DB_COLLECTION_NAME_FRONTEND_LOGS']]
         app_object.logger.info(f'Connected to database.')
     except ServerSelectionTimeoutError as e:
         app_object.logger.error(f'Could not connect to database.')
