@@ -893,7 +893,7 @@ $(document).ready(function () {
                         {
                             "name": "requirementId",
                             "source": "query",
-                            "value": ".or-requirement.data-id"
+                            "value": ".or-requirement"
                         },
                         {
                             "name": "url",
