@@ -41,7 +41,7 @@
  * @property {string} [split]
  * @property {number} [position]
  * @property {number} [divisor]
- * @property {number} [element_parent]
+ * @property {number|string} [element_parent]
  */
 /**
  * Class for the logging im frontend
@@ -137,7 +137,8 @@ class RiLogging {
 				for (let part = 0; part < dateStringConfig[delimiter].length; part++) {
 					if (dateStringConfig[delimiter][part] < 10) {
 						parts.push("0" + dateStringConfig[delimiter][part]);
-					} else {
+					}
+					else {
 						parts.push(dateStringConfig[delimiter][part]);
 					}
 				}
@@ -281,7 +282,8 @@ class RiLogging {
 		if ($(target.selector).length === 0 && typeof target.delayed === "boolean" && target.delayed === true) {
 			logging.message("target \"" + target.name + "\" is not avialable yet, try again in " + RiLogging.binding_delay + "ms");
 			setTimeout(logging.bindTargetEvent, RiLogging.binding_delay, logging, target);
-		} else if (typeof $(target.selector)[target.category] === "function" && target.bound === false) {
+		}
+		else if (typeof $(target.selector)[target.category] === "function" && target.bound === false) {
 			$(target.selector)[target.category](parameters, function (event) {
 			    /** @type JQuery.Event event */
 				let eventParameterGiven = typeof event.handleObj === "object" && typeof event.handleObj.data === "object" && event.handleObj.data !== null;
@@ -334,7 +336,8 @@ class RiLogging {
 		if (typeof loggingInformation.id === "string") {
 			let information = this.collectInformation(target, loggingInformation, event);
 			this.forwardInformation(target, loggingInformation, event, information);
-		} else {
+		}
+		else {
 			this.message("no information for logging the target \"" + target.name + "\"");
 		}
 	};
@@ -350,7 +353,7 @@ class RiLogging {
 		// check if its a property of source object of if its property of sub-object of the source
 		if (property.indexOf(".") >= 0) {
 			let properties = property.split(".");
-			// hasOwnProperty sometimes doesn't give right response, that's why double-check
+			// hasOwnProperty sometimes doesn't give right response, thats why double-check
 			if (source.hasOwnProperty(properties[0]) === true || typeof source[properties[0]] !== "undefined") {
 				property = properties[0];
 				properties.splice(0, 1);
@@ -361,6 +364,37 @@ class RiLogging {
 		else if (source.hasOwnProperty(property) || typeof source[property] !== "undefined") {
 			result = source[property];
 		}
+		return result;
+	};
+
+	/**
+	 * Evaluates the get-property of the logged field
+	 * @param {Object} object
+	 * @param {RiLoggingField} field
+	 * @returns {string}
+	 */
+	getObjectValue(object, field) {
+		let result = "";
+		if (typeof object === "object" && typeof field.get === "string" && field.get.length > 0) {
+			let functionName = field.get;
+
+			// change the function to a getter if needed
+			if (typeof object[functionName] !== "function") {
+				functionName = "get" + functionName[0].toUpperCase() + functionName.substring(1);
+			}
+			if (typeof object[functionName] === "function") {
+				if (typeof field.parameter === "undefined" || typeof field.parameter === "string" && field.parameter.length === 0 || field.parameter === null) {
+					result = object[functionName]();
+				}
+				else {
+					result = object[functionName](field.parameter);
+				}
+			}
+			else if (typeof object[0] === "object") {
+				result = this.collectInformationRecursive(object[0], field.get);
+			}
+		}
+
 		return result;
 	};
 
@@ -380,16 +414,8 @@ class RiLogging {
 		else if (typeof field.value === "string" && field.value.length > 0 && (date.hasOwnProperty(field.value) === true || typeof date[field.value] !== "undefined")) {
 			result = date[field.value];
 		}
-		// log of a function result of the object
 		else if (typeof field.get === "string" && field.get.length > 0) {
-			// check if the function can be used as-is
-			if (typeof date[field.get] === "function") {
-				result = date[field.get]();
-			}
-			// check if the function should be called as getter
-			else if (typeof date["get" + field.get[0].toUpperCase() + field.get.substring(1)] === "function") {
-				result = date["get" + field.get[0].toUpperCase() + field.get.substring(1)]();
-			}
+			result = this.getObjectValue(date, field);
 		}
 		return result;
 	};
@@ -397,33 +423,28 @@ class RiLogging {
 	/**
 	 * Collects the information from HTML
 	 * @params {RiLoggingField} field
+	 * @params {Object} [relatedObject]
 	 * @returns {string|number}
 	 */
-	collectInformationQuery(field) {
+	collectInformationQuery(field, relatedObject) {
 		let result = "";
-		let object = $(field.value);
+		let object = null;
+		if (typeof relatedObject === "object") {
+			object = $(relatedObject);
+		}
+		else {
+			object = $(field.value);
+		}
 		if (typeof object === "object" && object !== null && object.length > 0) {
 			if (typeof field.element_parent === "number" && field.element_parent > 0) {
 				for (let p = 0; p < field.element_parent; p++) {
 					object = object.parent();
 				}
 			}
-			if (typeof field.get === "string" && field.get.length > 0) {
-				// try to use the function as-is
-				let functionName = field.get;
-				// use getter for function in case as-is is not possible
-				if (typeof object[functionName] !== "function") {
-					functionName = "get" + field.get[0].toUpperCase() + field.get.substring(1);
-				}
-				// check if parameter needs to be passed
-				if (typeof object[functionName] === "function") {
-					if (typeof field.parameter === "undefined" || typeof field.parameter === "string" && field.parameter.length === 0 || field.parameter === null) {
-						result = object[functionName]();
-					} else {
-						result = object[functionName](field.parameter);
-					}
-				}
+			else if (typeof field.element_parent === "string" && field.element_parent.length > 0) {
+				object = object.parents(field.element_parent).first();
 			}
+			result = this.getObjectValue(object, field);
 		}
 		return result;
 	};
@@ -486,6 +507,9 @@ class RiLogging {
 			if (0 <= field.position && field.position < informationParts.length && typeof informationParts[field.position] !== undefined) {
 				information[field.name] = informationParts[field.position];
 			}
+		}
+		if (field.source === "event" && (typeof field.element_parent === "string" || typeof field.element_parent === "number")) {
+			information[field.name] = this.collectInformationQuery(field, information[field.name]);
 		}
 	};
 
@@ -610,7 +634,8 @@ class RiLogging {
 	handleResponse(request, response, success = true) {
 		if (success === true) {
 			this.message("data was sent successfully : " + response.message);
-		} else {
+		}
+		else {
 			this.message("data could not be sent : " + response.message);
 		}
 		// processing finished, so new event can be processed
@@ -624,7 +649,8 @@ class RiLogging {
 	static processQueue(logging) {
 		if (logging.event_queue.length === 0) {
 			setTimeout(RiLogging.processQueue, RiLogging.idle_time, logging);
-		} else {
+		}
+		else {
 			let eventConfig = logging.event_queue.shift();
 			eventConfig.logging.trackEvent(eventConfig.event, eventConfig.target);
 		}
@@ -892,8 +918,11 @@ $(document).ready(function () {
 						},
 						{
 							"name": "requirementId",
-							"source": "constant",
-							"value": "todo"
+							"source": "event",
+							"value": "originalEvent.target",
+							"element_parent": ".or-requirement",
+							"get": "dataset.id",
+							"datatype": "string"
 						},
 						{
 							"name": "url",
