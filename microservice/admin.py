@@ -8,7 +8,7 @@ import json
 import os
 
 from bson import json_util
-from flask import Blueprint, Response, current_app, Flask
+from flask import Blueprint, Response, current_app, Flask, request
 from pymongo.errors import ServerSelectionTimeoutError
 
 from . import auth
@@ -105,15 +105,6 @@ def export_documents(collection_name):
     response_body = json.dumps({})
     try:
         query_result = db[collection_name].find()
-        # result = list(query_result)
-        # for d in result:
-        #     del d['_id']
-        # response_body = json_util.dumps(
-        #     {
-        #         'payload': result,
-        #         'message': f'Exported {query_result.count()} entries from {db.name} -- {collection_name}'
-        #     }
-        # )
         response_body = ''
         for item in query_result:
             string_item = json_util.dumps(item)
@@ -123,6 +114,37 @@ def export_documents(collection_name):
         mimetype = 'application/json'
         current_app.logger.error(f'Error: {e}')
         response_body = json.dumps({'message': f'Something went wrong.'})
+    finally:
+        response = Response(response=response_body, status=http_status, mimetype=mimetype)
+        current_app.logger.debug(f'Responding with code: {http_status}')
+        return response
+
+
+@api.route('/<collection_name>/clean', methods=['PATCH'])
+@auth.auth_admin
+def clean_documents(collection_name):
+    """
+    Clean a collection from invalid value .
+    :param collection_name: The name of the collection to be exported.
+    :return: HTTP Response
+    """
+    http_status = 200
+    mimetype = 'application/json'
+    response_body = json.dumps({})
+    body = request.get_json()
+    try:
+        db[collection_name].remove(body['query'])
+        response_body = ''
+    except Exception as e:
+        http_status = 500
+        mimetype = 'application/json'
+        current_app.logger.error(f'Error: {e}')
+        response_body = json.dumps({'message': f'Something went wrong.'})
+    except KeyError as e:
+        http_status = 400
+        mimetype = 'application/json'
+        current_app.logger.error(f'Error: {e}')
+        response_body = json.dumps({'message': f'Query attribute is missing'})
     finally:
         response = Response(response=response_body, status=http_status, mimetype=mimetype)
         current_app.logger.debug(f'Responding with code: {http_status}')
