@@ -288,9 +288,11 @@ def log_post():
     body = request.get_json()
     try:
         event_type = body['type']
+        project_id = body['projectId']
+        requirement_id = body['requirementId']
         log_dict = {'ip': ip, 'event_type': event_type, 'header': header, 'body': body}
         frontend_logs.insert_one(log_dict)
-        response_text = 'Saved to database.'
+        response_text = f'Saved {event_type} for requirementId: {requirement_id} ; projectId: {project_id}'
         http_status = 200
     except (TypeError, KeyError, AttributeError) as e:
         http_status = 400
