@@ -1,0 +1,46 @@
+[
+  {
+    "bound": false,
+    "name": "navigation_main",
+    "type": "mouse",
+    "category": "click",
+    "selector": ".navigation-sections .navigation-element",
+    "information": "information_default"
+  },
+  {
+    "bound": false,
+    "delayed": true,
+    "name": "household_change",
+    "type": "mouse",
+    "category": "click",
+    "selector": ".household-selection-list .navigation-element",
+    "information": "information_default"
+  },
+  {
+    "bound": false,
+    "delayed": true,
+    "name": "formular_tab_change",
+    "type": "mouse",
+    "category": "click",
+    "selector": ".selection-list .selection-element",
+    "information": "information_default"
+  },
+  {
+    "bound": false,
+    "delayed": true,
+    "name": "formular_save",
+    "type": "mouse",
+    "category": "click",
+    "selector": ".angular-form input[type='button'][name='save']",
+    "information": "formular_save"
+  },
+  {
+    "bound": false,
+    "delayed": true,
+    "name": "formular_cancel",
+    "type": "mouse",
+    "category": "click",
+    "selector": ".angular-form input[type='button'][name='save']",
+    "information": "formular_cancel"
+  }
+]

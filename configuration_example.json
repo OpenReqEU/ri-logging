@@ -1,0 +1,107 @@
+{
+  "connection": {
+    "server": {
+      "host": "localhost",
+      "port": 3306,
+      "type": "mysql",
+      "database": {
+        "name": "openreq",
+        "create_collection": true,
+        "map": [
+          {
+            "information": "information_default",
+            "collection": "logging_information_default"
+          }
+        ]
+      }
+    },
+    "user": {
+      "name": "username",
+      "password": "password"
+    }
+  },
+  "logging": {
+    "backend": {
+      "server": {
+        "host": "0.0.0.0",
+        "port": 80
+      }
+    },
+    "frontend": {
+      "receiver": "/log",
+      "debug": {
+        "enabled": true,
+        "console": {
+          "date": true,
+          "class": true
+        }
+      },
+      "targets": [
+        {
+          "bound": false,
+          "name": "navigation_main",
+          "type": "mouse",
+          "category": "click",
+          "selector": ".navigation-sections .navigation-element",
+          "information": "information_default"
+        },
+        {
+          "bound": false,
+          "delayed": true,
+          "name": "household_change",
+          "type": "mouse",
+          "category": "click",
+          "selector": ".household-selection-list .navigation-element",
+          "information": "information_default"
+        },
+        {
+          "bound": false,
+          "delayed": true,
+          "name": "formular_tab_change",
+          "type": "mouse",
+          "category": "click",
+          "selector": ".selection-list .selection-element",
+          "information": "information_default"
+        }
+      ],
+      "information": [
+        {
+          "id": "information_default",
+          "target_name": "logging_event",
+          "timestamp_name": "created",
+          "header": [],
+          "fields": [
+            {
+              "name": "user_hash",
+              "source": "variable",
+              "value": "user_hash",
+              "datatype": "string"
+            },
+            {
+              "name": "body_css_class",
+              "source": "query",
+              "value": "body",
+              "get": "attr",
+              "parameter": "class",
+              "datatype": "string"
+            },
+            {
+              "name": "element_content",
+              "source": "event",
+              "value": "currentTarget.innerText",
+              "datatype": "string"
+            },
+            {
+              "name": "content_css_class",
+              "source": "query",
+              "value": "#content",
+              "get": "attr",
+              "parameter": "class",
+              "datatype": "string"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -5,6 +5,7 @@ flask_cors
 jsmin
 mongomock
 pymongo
+PyMySQL
 pytest
 pytest-cov
 python-dateutil

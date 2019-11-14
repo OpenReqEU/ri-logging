@@ -1,0 +1,23 @@
+{
+  "host": "https://.access.database-server.com",
+  "port": 3306,
+  "type": "mysql",
+  "database": {
+    "name": "openreq",
+    "create_collection": true,
+    "map": [
+      {
+        "information": "information_default",
+        "collection": "logging_information_default"
+      },
+      {
+        "information": "formular_save",
+        "collection": "logging_formular_save"
+      },
+      {
+        "information": "formular_cancel",
+        "collection": "logging_formular_action"
+      }
+    ]
+  }
+}

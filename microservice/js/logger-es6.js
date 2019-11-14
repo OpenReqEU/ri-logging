@@ -16,7 +16,6 @@
  */
 /**
  * @typedef RiLoggingTarget
- * @property {boolean} bound
  * @property {string} name
  * @property {string} type
  * @property {string} category
@@ -27,6 +26,7 @@
  * @property {string} [information]
  * @property {string} [receiver]
  * @property {string[]} [targets]
+ * @property {boolean} [bound]
  * @property {boolean} [delayed]
  */
 
@@ -41,7 +41,7 @@
  * @property {string} [split]
  * @property {number} [position]
  * @property {number} [divisor]
- * @property {number|string} [element_parent]
+ * @property {number} [element_parent]
  */
 /**
  * Class for the logging im frontend
@@ -99,7 +99,7 @@ class RiLogging {
 	 * Returns the instance of the class
 	 * @returns {RiLogging}
 	 */
-	static getInstance = function () {
+	static getInstance = function() {
 		let logging = new RiLogging();
 		logging.instance_id = RiLogging.instances.length;
 		RiLogging.instances.push(logging);
@@ -175,20 +175,18 @@ class RiLogging {
 	 * Starts the logging based on the configuration
 	 * @param {string|RiLoggingConfiguration} configuration
 	 */
-	static start = function (configuration) {
+	static start = function(configuration) {
 		let logging = RiLogging.getInstance();
 		// passed configuration is already object
 		if (typeof configuration === "object") {
 			logging.configuration = configuration;
-			logging.message("configuration loaded via object");
-			logging.initialize();
+			logging.initialize("configuration loaded via object");
 		}
 		// configuration is supposed to be loaded via extern url
 		else if (typeof configuration === "string" && configuration.indexOf("http") === 0) {
-			$.get(configuration, function (response) {
+			$.get(configuration, function(response) {
 				logging.configuration = response;
-				logging.message("configuration loaded via extern URL");
-				logging.initialize();
+				logging.initialize("configuration loaded via extern URL");
 			});
 		}
 		// configuration is supposed to be loaded via intern url (baseUrl is used)
@@ -198,23 +196,29 @@ class RiLogging {
 			if (baseUri[baseUri.length - 1] === "/") {
 				baseUri = baseUri.substr(0, baseUri.length - 1);
 			}
-			$.get(baseUri + configuration).success(function (response) {
+			$.get(baseUri + configuration).success(function(response) {
 				logging.configuration = response;
-				logging.message("configuration loaded via extern URL");
-				logging.initialize();
+				logging.initialize("configuration loaded via intern URL");
 			});
 		}
 	};
 
 	/**
 	 * Initializes the module, after that the events will be bound
+	 * @param {string} message
 	 */
-	initialize() {
-		if (this.debug === false && this.configuration.debug.enabled === true) {
+	initialize(message) {
+		if (typeof this.configuration === "object" && this.configuration.hasOwnProperty("debug") && typeof this.configuration.debug === "object" && this.configuration.debug.hasOwnProperty("enabled") && this.configuration.debug.enabled === true) {
 			this.enableDebug();
 		}
-		this.message("start binding events to given targets");
-		this.bindEvents();
+		if (typeof this.configuration === "object" && this.configuration.hasOwnProperty("receiver") && typeof this.configuration.receiver === "string" && this.configuration.receiver.length > 0) {
+			this.message(message);
+			this.message("start binding events to given targets");
+			this.bindEvents();
+		}
+		else {
+			this.message("initialization is denied because of invalid configuration");
+		}
 	};
 
 	/**
@@ -225,7 +229,7 @@ class RiLogging {
 		for (let t = 0; t < targets.length; t++) {
 			/** @type {RiLoggingTarget} target */
 			let target = targets[t];
-			let doBindEvent = target.bound === false;
+			let doBindEvent = target.bound === false && typeof target.name === "string";
 			for (let p = 0; p < targets.length; p++) {
 				if (typeof targets[p].targets === "object" && targets[p].targets.indexOf(target.name) >= 0) {
 					doBindEvent = false;
@@ -263,9 +267,6 @@ class RiLogging {
 				processEvent = processEvent === true && (typeof loggingTarget.key_shift !== "boolean" || event.originalEvent.shiftKey === loggingTarget.key_shift);
 				break;
 		}
-		if (loggingTarget.type === "keyboard" && event.originalEvent.which === loggingTarget.key) {
-			processEvent = true;
-		}
 		if (processEvent === true && logging.event_queue_lock === false) {
 			logging.event_queue.push({logging: logging, target: loggingTarget, event: event});
 		}
@@ -284,8 +285,7 @@ class RiLogging {
 			setTimeout(logging.bindTargetEvent, RiLogging.binding_delay, logging, target);
 		}
 		else if (typeof $(target.selector)[target.category] === "function" && target.bound === false) {
-			$(target.selector)[target.category](parameters, function (event) {
-			    /** @type JQuery.Event event */
+			$(target.selector)[target.category](parameters, function(event) {
 				let eventParameterGiven = typeof event.handleObj === "object" && typeof event.handleObj.data === "object" && event.handleObj.data !== null;
 				let eventParameterValid = eventParameterGiven === true && typeof event.handleObj.data["ri-logging"] === "object" && typeof event.handleObj.data["ri-logging-target"] === "object";
 				if (eventParameterValid === true) {
@@ -368,37 +368,6 @@ class RiLogging {
 	};
 
 	/**
-	 * Evaluates the get-property of the logged field
-	 * @param {Object} object
-	 * @param {RiLoggingField} field
-	 * @returns {string}
-	 */
-	getObjectValue(object, field) {
-		let result = "";
-		if (typeof object === "object" && typeof field.get === "string" && field.get.length > 0) {
-			let functionName = field.get;
-
-			// change the function to a getter if needed
-			if (typeof object[functionName] !== "function") {
-				functionName = "get" + functionName[0].toUpperCase() + functionName.substring(1);
-			}
-			if (typeof object[functionName] === "function") {
-				if (typeof field.parameter === "undefined" || typeof field.parameter === "string" && field.parameter.length === 0 || field.parameter === null) {
-					result = object[functionName]();
-				}
-				else {
-					result = object[functionName](field.parameter);
-				}
-			}
-			else if (typeof object[0] === "object") {
-				result = this.collectInformationRecursive(object[0], field.get);
-			}
-		}
-
-		return result;
-	};
-
-	/**
 	 * Collects the information from date object
 	 * @params {RiLoggingField} field
 	 * @returns {Date|string|number}
@@ -414,8 +383,16 @@ class RiLogging {
 		else if (typeof field.value === "string" && field.value.length > 0 && (date.hasOwnProperty(field.value) === true || typeof date[field.value] !== "undefined")) {
 			result = date[field.value];
 		}
+		// log of a function result of the object
 		else if (typeof field.get === "string" && field.get.length > 0) {
-			result = this.getObjectValue(date, field);
+			// check if the function can be used as-is
+			if (typeof date[field.get] === "function") {
+				result = date[field.get]();
+			}
+			// check if the function should be called as getter
+			else if (typeof date["get" + field.get[0].toUpperCase() + field.get.substring(1)] === "function") {
+				result = date["get" + field.get[0].toUpperCase() + field.get.substring(1)]();
+			}
 		}
 		return result;
 	};
@@ -423,28 +400,34 @@ class RiLogging {
 	/**
 	 * Collects the information from HTML
 	 * @params {RiLoggingField} field
-	 * @params {Object} [relatedObject]
 	 * @returns {string|number}
 	 */
-	collectInformationQuery(field, relatedObject) {
+	collectInformationQuery(field) {
 		let result = "";
-		let object = null;
-		if (typeof relatedObject === "object") {
-			object = $(relatedObject);
-		}
-		else {
-			object = $(field.value);
-		}
+		let object = $(field.value);
 		if (typeof object === "object" && object !== null && object.length > 0) {
 			if (typeof field.element_parent === "number" && field.element_parent > 0) {
 				for (let p = 0; p < field.element_parent; p++) {
 					object = object.parent();
 				}
 			}
-			else if (typeof field.element_parent === "string" && field.element_parent.length > 0) {
-				object = object.parents(field.element_parent).first();
+			if (typeof field.get === "string" && field.get.length > 0) {
+				// try to use the function as-is
+				let functionName = field.get;
+				// use getter for function in case as-is is not possible
+				if (typeof object[functionName] !== "function") {
+					functionName = "get" + field.get[0].toUpperCase() + field.get.substring(1);
+				}
+				// check if parameter needs to be passed
+				if (typeof object[functionName] === "function") {
+					if (typeof field.parameter === "undefined" || typeof field.parameter === "string" && field.parameter.length === 0 || field.parameter === null) {
+						result = object[functionName]();
+					}
+					else {
+						result = object[functionName](field.parameter);
+					}
+				}
 			}
-			result = this.getObjectValue(object, field);
 		}
 		return result;
 	};
@@ -606,7 +589,7 @@ class RiLogging {
 			data: data,
 			headers: headers,
 			dataType: "json",
-			success: function (response) {
+			success: function(response) {
 				// this refers to the made request
 				let instance_id = this.headers["X-Ri-Logging-Instance"];
 				if (typeof instance_id === "number" && typeof RiLogging.instances[instance_id] === "object" && RiLogging.instances[instance_id] !== null) {
@@ -614,7 +597,7 @@ class RiLogging {
 					logging.handleResponse(this, response, true);
 				}
 			},
-			error: function (response) {
+			error: function(response) {
 				// this refers to the made request
 				let instance_id = this.headers["X-Ri-Logging-Instance"];
 				if (typeof instance_id === "number" && typeof RiLogging.instances[instance_id] === "object" && RiLogging.instances[instance_id] !== null) {
@@ -635,8 +618,11 @@ class RiLogging {
 		if (success === true) {
 			this.message("data was sent successfully : " + response.message);
 		}
-		else {
+		else if (typeof response === "object" && typeof response.message === "string") {
 			this.message("data could not be sent : " + response.message);
+		}
+		else {
+			this.message("data could not be sent : server not reachable");
 		}
 		// processing finished, so new event can be processed
 		RiLogging.processQueue(this);
@@ -657,300 +643,15 @@ class RiLogging {
 	}
 }
 
-$(document).ready(function () {
-	// here creating instance of your logging module, example below
-	// RiLogging.start("https://logging.my-website/frontend_configuration");
-	/**
-	 * Configuration needed by the logging module
-	 * @type {RiLoggingConfiguration} ri_logging_configuration
-	 */
-	let ri_logging_configuration =
-		{
-			"receiver": "https://api.openreq.eu/ri-logging/frontend/log",
-			"debug": {
-				"enabled": true,
-				"console": {
-					"date": true,
-					"class": true
-				}
-			},
-			"targets": [
-				{
-					"bound": false,
-					"name": "body_click",
-					"type": "mouse",
-					"category": "click",
-					"selector": "body",
-					"information": "default"
-				},
-				{
-					"bound": false,
-					"name": "condition",
-					"type": "mouse",
-					"category": "mouseover",
-					"selector": "body",
-					"targets": [
-						"FOCUSED .or-requirement-title",
-						"UNFOCUSED .or-requirement-title",
-						"FOCUSED .note-editable",
-						"UNFOCUSED .note-editable"
-					]
-				},
-				{
-					"bound": false,
-					"name": "FOCUSED .or-requirement-title",
-					"type": "mouse",
-					"category": "focus",
-					"selector": ".or-requirement-title",
-					"information": "default",
-					"delayed": true
-				},
-				{
-					"bound": false,
-					"name": "UNFOCUSED .or-requirement-title",
-					"type": "mouse",
-					"category": "blur",
-					"selector": ".or-requirement-title",
-					"information": "default",
-					"delayed": true
-				},
-				{
-					"bound": false,
-					"name": "FOCUSED .note-editable",
-					"type": "mouse",
-					"category": "focus",
-					"selector": ".note-editable",
-					"information": "default",
-					"delayed": true
-				},
-				{
-					"bound": false,
-					"name": "UNFOCUSED .note-editable",
-					"type": "mouse",
-					"category": "blur",
-					"selector": ".note-editable",
-					"information": "default",
-					"delayed": true
-				}
-			],
-			"information": [
-				{
-					"id": "default",
-					"target_name": "target_name",
-					"timestamp_name": "timestamp_event",
-					"header": [
-						{
-							"name": "sessionId",
-							"source": "cookie",
-							"value": "sessionId"
-						},
-						{
-							"name": "Content-Type",
-							"source": "constant",
-							"value": "application/json"
-						}
-					],
-					"fields": [
-						{
-							"name": "screenX",
-							"source": "event",
-							"value": "originalEvent.screenX"
-						},
-						{
-							"name": "screenY",
-							"source": "event",
-							"value": "originalEvent.screenY"
-						},
-						{
-							"name": "clientX",
-							"source": "event",
-							"value": "originalEvent.clientX"
-						},
-						{
-							"name": "clientY",
-							"source": "event",
-							"value": "originalEvent.clientY"
-						},
-						{
-							"name": "x",
-							"source": "event",
-							"value": "originalEvent.x"
-						},
-						{
-							"name": "y",
-							"source": "event",
-							"value": "originalEvent.y"
-						},
-						{
-							"name": "offsetX",
-							"source": "event",
-							"value": "originalEvent.offsetX"
-						},
-						{
-							"name": "offsetY",
-							"source": "event",
-							"value": "originalEvent.offsetY"
-						},
-						{
-							"name": "movementX",
-							"source": "event",
-							"value": "originalEvent.movementX"
-						},
-						{
-							"name": "movementY",
-							"source": "event",
-							"value": "originalEvent.movementY"
-						},
-						{
-							"name": "layerX",
-							"source": "event",
-							"value": "originalEvent.layerX"
-						},
-						{
-							"name": "layerY",
-							"source": "event",
-							"value": "originalEvent.layerY"
-						},
-						{
-							"name": "type",
-							"source": "event",
-							"value": "originalEvent.type"
-						},
-						{
-							"name": "timeStamp",
-							"source": "event",
-							"value": "originalEvent.timeStamp"
-						},
-						{
-							"name": "offsetTop",
-							"source": "event",
-							"value": "originalEvent.target.offsetTop"
-						},
-						{
-							"name": "offsetLeft",
-							"source": "event",
-							"value": "originalEvent.target.offsetLeft"
-						},
-						{
-							"name": "offsetWidth",
-							"source": "event",
-							"value": "originalEvent.target.offsetWidth"
-						},
-						{
-							"name": "offsetHeight",
-							"source": "event",
-							"value": "originalEvent.target.offsetHeight"
-						},
-						{
-							"name": "innerText",
-							"source": "event",
-							"value": "originalEvent.target.innerText"
-						},
-						{
-							"name": "outerText",
-							"source": "event",
-							"value": "originalEvent.target.outerText"
-						},
-						{
-							"name": "scrollTop",
-							"source": "event",
-							"value": "originalEvent.target.scrollTop"
-						},
-						{
-							"name": "scrollLeft",
-							"source": "event",
-							"value": "originalEvent.target.scrollLeft"
-						},
-						{
-							"name": "scrollWidth",
-							"source": "event",
-							"value": "originalEvent.target.scrollWidth"
-						},
-						{
-							"name": "scrollHeight",
-							"source": "event",
-							"value": "originalEvent.target.scrollHeight"
-						},
-						{
-							"name": "clientTop",
-							"source": "event",
-							"value": "originalEvent.target.clientTop"
-						},
-						{
-							"name": "clientLeft",
-							"source": "event",
-							"value": "originalEvent.target.clientLeft"
-						},
-						{
-							"name": "clientWidth",
-							"source": "event",
-							"value": "originalEvent.target.clientWidth"
-						},
-						{
-							"name": "clientHeight",
-							"source": "event",
-							"value": "originalEvent.target.clientHeight"
-						},
-						{
-							"name": "value",
-							"source": "event",
-							"value": "originalEvent.target.value"
-						},
-						{
-							"name": "srcElementclassName",
-							"source": "event",
-							"value": "originalEvent.srcElement.className"
-						},
-						{
-							"name": "srcElementId",
-							"source": "event",
-							"value": "originalEvent.srcElement.id"
-						},
-						{
-							"name": "targetclassName",
-							"source": "event",
-							"value": "originalEvent.target.className"
-						},
-						{
-							"name": "targetId",
-							"source": "event",
-							"value": "originalEvent.target.id"
-						},
-						{
-							"name": "requirementId",
-							"source": "event",
-							"value": "originalEvent.target",
-							"element_parent": ".or-requirement",
-							"get": "dataset.id",
-							"datatype": "string"
-						},
-						{
-							"name": "url",
-							"source": "window",
-							"value": "location.href"
-						},
-						{
-							"name": "isoTime",
-							"source": "date",
-							"value": ""
-						},
-						{
-							"name": "unixTime",
-							"source": "date",
-							"value": "",
-							"get": "time",
-							"divisor": 1000
-						},
-						{
-							"name": "projectId",
-							"source": "window",
-							"value": "location.href",
-							"split": "/",
-							"position": 5
-						}
-					]
-				}
-			]
-		};
-	RiLogging.start(ri_logging_configuration);
+$(document).ready(function() {
+	// here creating instace of your logging module, examples below
+
+	// starting via absolute URL
+	// RiLogging.start("https://logging.my-website/uri/to/your/configuration/file.json");
+
+	// starting via relative URL
+	// RiLogging.start("/uri/to/your/configuration/file.json");
+
+	// starting via json configuration
+	// RiLogging.start(configuration);
 });

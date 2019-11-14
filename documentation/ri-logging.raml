@@ -1,0 +1,318 @@
+#%RAML 1.0
+title: Ri-Logging OpenReq
+description: Introduction :<br/>This documentation describes a part of OpenCall of OpenReq, where we extended the module "ri-logging". The extension of the module was done so that we could use it in a more free way, but also to make it possible for other companies to use. <br/>The module itself is split into 2 main parts.<br/>1.) JavaScript file which should be integrated into the website, which will track the user activities and send the data to a given URI.<br/>2.) Receiving endpoint programmed in python which will store the data in a database (ether MongoDB or MySQL/MariaDB)<br/>Since the interesting user interactions with the website vary from company to company, we made the logging completly dynamic, so that everyone can create a configurations that he needs.<br/>This documentation provides information about the configuration file for the logging module, but also the description of the endpoints"
+version: 1.0
+baseUri: https://rest.energiesparkonto.de/openreq/ri-logging/
+mediaType: application/json
+securitySchemes:
+  passthrough: !include /securitySchemes/passthrough.raml
+
+types:
+  ModuleConfiguration:
+    type: object
+    properties:
+      connection:
+        type: Connection
+        description: The object for the internal configuration of the connection to the database, where the data should be stored. Should provide all information needed for establishing connection, the authenfication etc.
+      logging:
+        type: Logging
+        description: The object for the external configuration of the logging module, which will collect and send data. Should provide all targets of interest and also the data that should be collected from the website and sent to the receiver.
+    example: !include examples/module-configuration.json
+  Connection:
+    type: object
+    properties:
+      server:
+        type: Server
+        description: The configuration of the server to which the connection should be made. Should contain the URI, port, type etc.
+      user:
+        type: User
+        description: The login information for the server, only needed if your server is actually protected by login
+        required: false
+    example: !include examples/module-configuration-connection.json
+  Server:
+    type: object
+    properties:
+      host:
+        type: string
+        description: Contains the location of the server, ether IP adress or (sub-)domain, with which the server can be accessed.
+        example: 127.0.0.1 or 192.168.1.123 or server.my-domain.com
+      port:
+        type: integer
+        description: The port via which the server should be adressed. It should be positive integer value.
+        example : 3306
+      "type": !include enums/connection_server_type.raml
+      database:
+        type : Database
+        description: Object for the storage of data inside of database
+        example: !include examples/module-configuration-connection-server-database.json
+    example: !include examples/module-configuration-connection-server.json
+  Database:
+    type: object
+    properties:
+      name:
+        type: string
+        description: The name of the database, in which the data should be stored
+        example: ri-logging
+      create_collection:
+        type: boolean
+        description: Marker for the on-demand-creation of the collection inside of given database. Doesn't play any role if you are using mongoDB, since the collections are always created on-demand. But makes your life a lot easier if you are using MySQL, since the needed tables will be created automatically. WARNING => after creating the tables will NOT be edited automatically.
+        example: true
+      map:
+        type: array
+        items: DatabaseMap
+        example: !include examples/module-configuration-connection-server-database-maps.json
+    example: !include examples/module-configuration-connection-server-database.json
+  DatabaseMap:
+    type: object
+    properties:
+      information:
+        type: string
+        description: The id of the information, which was collected by some event
+        example: formular_cancel
+      collection:
+        type: string
+        description: The name of the collection of MongoDB or of MySQL table (depending on which you are using)
+        example: logging_formular_action
+    example: !include examples/module-configuration-connection-server-database-map.json
+  User:
+    type: object
+    properties:
+      name:
+        type: string
+        description: Username to log in into database (if the database is protected by login)
+        example: database-server-user
+      password:
+        type: string
+        description: Password to log in into database (if the database is protected by login)
+        example: database-server-password
+    example: !include examples/module-configuration-connection-user.json
+  Logging:
+    type: object
+    properties:
+      backend:
+        type: Backend
+        description: Configuration of the python webserver to listen on.
+        example: !include examples/module-configuration-logging-backend.json
+      frontend:
+        type: Frontend
+        description: Configuration of the logging in the frontend itself, will provide this part of configuration for the JavaScript file.
+        example: !include examples/module-configuration-logging-frontend.json
+    example: !include examples/module-configuration-logging.json
+  Backend:
+    type: object
+    properties:
+      server:
+        type: BackendServer
+        description: Configuration of the python webserver to listen on.
+        example: !include examples/module-configuration-logging-backend-server.json
+  BackendServer:
+    type: object
+    properties:
+      host:
+        type: string
+        description: The ip on which the python server should listen on.
+        example: 0.0.0.0
+      port:
+        type: integer
+        description: The port on which the python server should listen on.
+        example: 80
+    example: !include examples/module-configuration-logging-backend-server.json
+  Frontend:
+    type: object
+    properties:
+      receiver:
+        type: string
+        description: The URL of the server, where the logged data should be sent to. Can be ther relative or absolute URL.
+        example: /openreq/ri_logging
+      debug:
+        type: Debug
+        description: The debug configuration for the frontend module (JavaScript)
+        example: !include examples/module-configuration-logging-frontend-debug.json
+      targets:
+        type: array
+        items: TargetMouse|TargetKeyboard
+        example: !include examples/module-configuration-logging-frontend-targets.json
+      information:
+        type: array
+        items: TargetInformation
+        example: !include examples/module-configuration-logging-frontend-information.json
+  Debug:
+    type: object
+    description: The debug configuration for the frontend module (JavaScript)
+    properties:
+      enabled:
+        type: boolean
+        description: Switches the console debugging on or off
+        example: true
+      console:
+        type: DebugConsole
+        description: Configuration for the debugging in browser console.
+        example: !include examples/module-configuration-logging-frontend-debug-console.json
+    example: !include examples/module-configuration-logging-frontend-debug.json
+  DebugConsole:
+    type: object
+    description: Configuration for the debugging in browser console.
+    properties:
+      date:
+        type: boolean
+        description: Enable or disable the output of the date in debug message in browser console.
+        example: true
+      class:
+        type: boolean
+        description: Enable or disable the output of the class name of the logger together with the instance in debug message in browser console.
+        example: true
+  TargetMouse:
+    type: object
+    description: Configuration for a target for logging, which will be triggered by mouse action.
+    properties:
+      bound:
+        type: boolean
+        description: Indicator of this event was bound already or not. Its possible to deactivate the target with true without the need to delete it. After bounding the event once, the property will be set to true to avoid multiple boundings.
+        example: false
+        default: true
+      delayed:
+        type: boolean
+        description: Indicator if this event should only be bound when the given selector is found in HTML DOM.
+        example: false
+        default: false
+        required: false
+      name:
+        type: string
+        description: The name of the event you want to be passed to the database. This will help to identify the loggings from specific target, in case you are using same informations and tables for multiple targets.
+        default:
+      "type":
+        type: string
+        description: The trigger for the event, it can be ether mouse or keyboard. Depending on the choise the required parameters shift
+        example: mouse
+      category:
+        type: string
+        description: Event that should be tracked
+        example: click, change
+      selector:
+        type: string
+        description: Selector for the element on that the event should be tracked
+        example: .class, element
+      information:
+        type: string
+        description: The identification key for the information that should be collected
+        example: formular_save or navigation_main
+      receiver:
+        type: string
+        description: Overrides the URL of the server, where the logged data should be sent to. Can be ther relative or absolute URL.
+        example: /openreq/ri_logging
+        required: false
+    example: !include examples/module-configuration-logging-frontend-targetMouse.json
+  TargetKeyboard:
+    type: object
+    description: Configuration for a target for logging, which will be triggered by keyboard key.
+    properties:
+      bound:
+        type: boolean
+        description: Indicator of this event was bound already or not. Its possible to deactivate the target with true without the need to delete it. After bounding the event once, the property will be set to true to avoid multiple boundings.
+        example: false
+      delayed:
+        type: boolean
+        description: Indicator if this event should only be bound when the given selector is found in HTML DOM.
+        example: false
+        default: false
+      name:
+        type: string
+        description: The name of the event you want to be passed to the database. This will help to identify the loggings from specific target, in case you are using same informations and tables for multiple targets.
+      "type":
+        type: string
+        description: The trigger for the event, it can be ether mouse or keyboard. Depending on the choise the required parameters shift
+        example: keyboard
+      category:
+        type: string
+        description: Event that should be tracked
+        example: click, change
+      selector:
+        type: string
+        description: Selector for the element on that the event should be tracked
+        example: .class, element
+      information:
+        type: string
+        description: The identification key for the information that should be collected
+        example: formular_save or navigation_main
+        required: false
+      receiver:
+        type: string
+        description: Overrides the URL of the server, where the logged data should be sent to. Can be ther relative or absolute URL.
+        example: /openreq/ri_logging
+        required: false
+      key_alt:
+        type: boolean
+        description: The marker if the key you want to be logged should only be logged if the alt key is being hold while pressing the monitored key
+        required: false
+      key_shift:
+        type: boolean
+        description: The marker if the key you want to be logged should only be logged if the shift key is being hold while pressing the monitored key
+        required: false
+      key:
+        type: integer
+        description: The keycode from the key that should be tracked
+        required: true
+      # example: !include examples/module-configuration-logging-frontend-targetKeyboard.json
+  TargetInformation:
+    type: object
+    description: The configuration of the information, which should be collected. This information can be assigned to a target and will be collected once the event is triggered.
+    properties:
+      id:
+        type: string
+      target_name: string
+      timestamp_name: string
+      header:
+        type: array
+        items: InformationField
+      fields:
+        type: array
+        items: InformationField
+  InformationField:
+    type: object
+    description: The actual information you want to collect or to provide directly
+    properties:
+      name: string
+      source: string
+      value: string
+      datatype:
+        type: string
+        required: false
+      "get":
+        type: string
+        required: false
+      split:
+        type: string
+        required: false
+      parameter:
+        type: string
+        required: false
+      position:
+        type: integer
+        required: false
+      divisor:
+        type: integer
+        required: false
+      element_parent:
+        type: integer
+        required: false
+
+
+
+/frontend_configuration/:
+  get:
+    securedBy: passthrough
+    description: Provides configuration for the JavaSchript logger
+    responses:
+      200:
+        body:
+          application/json:
+            type: Frontend
+            properties:
+              status: ModuleConfiguration
+    body:
+      application/json:
+        properties:
+          email:
+            type: string
+          password:
+            type: string
