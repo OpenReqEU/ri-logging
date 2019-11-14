@@ -1,8 +1,10 @@
+# dependencies
 import pymysql as adapter
 import microservice.lib.messages as message_module
 from microservice.lib.mysql_query_generator import RiLoggingMySqlQueryCreator
 
 
+# connector to MySQL database
 class MySQLConnection:
     host: str = ""
     port: int = 3306
