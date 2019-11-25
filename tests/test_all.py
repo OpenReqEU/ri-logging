@@ -12,9 +12,8 @@ import unittest
 
 from dateutil.tz import tzutc
 
-import microservice
 from microservice import auth, util, backend_logging, data_access, frontend_logging
-
+import microservice
 
 class BaseTest(unittest.TestCase):
     @classmethod
@@ -34,6 +33,8 @@ class BaseTest(unittest.TestCase):
         os.environ['DB_AUTH_MECHANISM'] = ''
         os.environ['DB_AUTH_SOURCE'] = ''
         os.environ['DB_NAME_FRONTEND_LOGS'] = 'riLoggingTest'
+        os.environ['DB_COLLECTION_NAME_FRONTEND_LOGS'] = 'frontend'
+        os.environ['DB_COLLECTION_NAME_BACKEND_LOGS'] = 'backend'
         os.environ['DB_USER'] = ''
         os.environ['DB_PASSWORD'] = ''
         os.environ['DB_CONNECTION_TIMEOUT'] = '500'
@@ -44,6 +45,7 @@ class BaseTest(unittest.TestCase):
         os.environ['DIR_DEBUG_LOG'] = cls.dir_debug_log
         os.environ['DIR_BACKEND_LOG'] = cls.dir_backend_log
         os.environ['BACKEND_LOG_SCHEDULE'] = '18:00'
+
 
         os.environ['DEBUG'] = 'True'
         os.environ['LOGGING_LEVEL'] = 'DEBUG'
@@ -186,7 +188,7 @@ class FrontendAPITest(BaseTest):
                         'Sessionid': '1q2w3e4r5t6y', 'Accept': '*/*'
                     },
                 content_type='application/json')
-            self.assertEqual(500, response.status_code)
+            self.assertEqual(400, response.status_code)
             url = f'{self.url_base}/log'
             response = c.post(
                 url,
