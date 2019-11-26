@@ -1,11 +1,11 @@
-<coverage branch-rate="0" branches-covered="0" branches-valid="0" complexity="0" line-rate="0.7409" lines-covered="529" lines-valid="714" timestamp="1574780560982" version="4.5.4">
+<coverage branch-rate="0" branches-covered="0" branches-valid="0" complexity="0" line-rate="0.8053" lines-covered="575" lines-valid="714" timestamp="1574781859348" version="4.5.4">
 	
 	
 	<sources>
 		<source>microservice</source>
 	</sources>
 	<packages>
-		<package branch-rate="0" complexity="0" line-rate="0.7409" name=".">
+		<package branch-rate="0" complexity="0" line-rate="0.8053" name=".">
 			<classes>
 				<class branch-rate="0" complexity="0" filename="__init__.py" line-rate="0.9846" name="__init__.py">
 					<methods />
@@ -77,7 +77,7 @@
 						<line hits="1" number="116" />
 					</lines>
 				</class>
-				<class branch-rate="0" complexity="0" filename="admin.py" line-rate="0.5921" name="admin.py">
+				<class branch-rate="0" complexity="0" filename="admin.py" line-rate="0.7763" name="admin.py">
 					<methods />
 					<lines>
 						<line hits="1" number="7" />
@@ -134,26 +134,26 @@
 						<line hits="1" number="98" />
 						<line hits="1" number="101" />
 						<line hits="1" number="102" />
-						<line hits="0" number="109" />
-						<line hits="0" number="110" />
-						<line hits="0" number="111" />
-						<line hits="0" number="112" />
-						<line hits="0" number="113" />
-						<line hits="0" number="114" />
+						<line hits="1" number="109" />
+						<line hits="1" number="110" />
+						<line hits="1" number="111" />
+						<line hits="1" number="112" />
+						<line hits="1" number="113" />
+						<line hits="1" number="114" />
 						<line hits="0" number="115" />
-						<line hits="0" number="116" />
-						<line hits="0" number="117" />
-						<line hits="0" number="118" />
-						<line hits="0" number="119" />
-						<line hits="0" number="120" />
+						<line hits="1" number="116" />
+						<line hits="1" number="117" />
+						<line hits="1" number="118" />
+						<line hits="1" number="119" />
+						<line hits="1" number="120" />
 						<line hits="0" number="121" />
 						<line hits="0" number="122" />
 						<line hits="0" number="123" />
 						<line hits="0" number="124" />
 						<line hits="0" number="125" />
-						<line hits="0" number="127" />
-						<line hits="0" number="128" />
-						<line hits="0" number="129" />
+						<line hits="1" number="127" />
+						<line hits="1" number="128" />
+						<line hits="1" number="129" />
 						<line hits="1" number="132" />
 						<line hits="1" number="133" />
 					</lines>
@@ -197,7 +197,7 @@
 						<line hits="1" number="85" />
 					</lines>
 				</class>
-				<class branch-rate="0" complexity="0" filename="backend_logging.py" line-rate="0.6143" name="backend_logging.py">
+				<class branch-rate="0" complexity="0" filename="backend_logging.py" line-rate="0.7286" name="backend_logging.py">
 					<methods />
 					<lines>
 						<line hits="1" number="7" />
@@ -257,27 +257,27 @@
 						<line hits="1" number="99" />
 						<line hits="1" number="102" />
 						<line hits="1" number="103" />
-						<line hits="0" number="110" />
-						<line hits="0" number="112" />
-						<line hits="0" number="113" />
-						<line hits="0" number="114" />
-						<line hits="0" number="115" />
-						<line hits="0" number="116" />
-						<line hits="0" number="117" />
+						<line hits="1" number="110" />
+						<line hits="1" number="112" />
+						<line hits="1" number="113" />
+						<line hits="1" number="114" />
+						<line hits="1" number="115" />
+						<line hits="1" number="116" />
+						<line hits="1" number="117" />
 						<line hits="0" number="118" />
 						<line hits="0" number="119" />
 						<line hits="0" number="120" />
-						<line hits="0" number="121" />
-						<line hits="0" number="122" />
-						<line hits="0" number="123" />
-						<line hits="0" number="124" />
-						<line hits="0" number="125" />
-						<line hits="0" number="127" />
-						<line hits="0" number="128" />
-						<line hits="0" number="129" />
+						<line hits="1" number="121" />
+						<line hits="1" number="122" />
+						<line hits="1" number="123" />
+						<line hits="1" number="124" />
+						<line hits="1" number="125" />
+						<line hits="1" number="127" />
+						<line hits="1" number="128" />
+						<line hits="1" number="129" />
 						<line hits="1" number="132" />
-						<line hits="0" number="140" />
-						<line hits="0" number="141" />
+						<line hits="1" number="140" />
+						<line hits="1" number="141" />
 						<line hits="0" number="142" />
 						<line hits="0" number="143" />
 						<line hits="0" number="145" />
@@ -290,7 +290,7 @@
 						<line hits="0" number="152" />
 						<line hits="0" number="154" />
 						<line hits="0" number="155" />
-						<line hits="0" number="156" />
+						<line hits="1" number="156" />
 						<line hits="1" number="159" />
 						<line hits="1" number="160" />
 						<line hits="1" number="167" />
@@ -352,24 +352,24 @@
 						<line hits="1" number="237" />
 						<line hits="1" number="240" />
 						<line hits="1" number="241" />
-						<line hits="0" number="248" />
-						<line hits="0" number="250" />
-						<line hits="0" number="251" />
-						<line hits="0" number="252" />
-						<line hits="0" number="253" />
-						<line hits="0" number="254" />
+						<line hits="1" number="248" />
+						<line hits="1" number="250" />
+						<line hits="1" number="251" />
+						<line hits="1" number="252" />
+						<line hits="1" number="253" />
+						<line hits="1" number="254" />
 						<line hits="0" number="255" />
 						<line hits="0" number="256" />
 						<line hits="0" number="257" />
 						<line hits="0" number="258" />
-						<line hits="0" number="259" />
-						<line hits="0" number="260" />
-						<line hits="0" number="261" />
-						<line hits="0" number="262" />
-						<line hits="0" number="263" />
-						<line hits="0" number="265" />
-						<line hits="0" number="266" />
-						<line hits="0" number="267" />
+						<line hits="1" number="259" />
+						<line hits="1" number="260" />
+						<line hits="1" number="261" />
+						<line hits="1" number="262" />
+						<line hits="1" number="263" />
+						<line hits="1" number="265" />
+						<line hits="1" number="266" />
+						<line hits="1" number="267" />
 						<line hits="1" number="270" />
 						<line hits="1" number="277" />
 						<line hits="0" number="282" />
