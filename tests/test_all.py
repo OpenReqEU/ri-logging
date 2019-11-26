@@ -268,6 +268,32 @@ class BackendAPITest(BaseTest):
                 response_data = json.loads(response.get_data())
                 self.assertEqual(1, len(response_data['filenames']))
 
+    def test_backend_db_log_post(self):
+        with self.app.test_client() as c:
+            response = c.post(f'{self.url_base}/db/log')
+            self.assertEqual(401, response.status_code)
+            response = c.post(f'{self.url_base}/db/log', headers={'Authorization': f'Bearer {self.user_bearer_token}'})
+            self.assertEqual(500, response.status_code)
+            # response_data = json.loads(response.post_data())
+            # self.assertEqual(0, len(response_data['filenames']))
+            # with tempfile.NamedTemporaryFile(dir=self.dir_backend_log, suffix='.log'):
+            #     response = c.post(f'{self.url_base}/log', headers={'Authorization': f'Bearer {self.user_bearer_token}'})
+            #     response_data = json.loads(response.post_data())
+            #     self.assertEqual(1, len(response_data['filenames']))
+
+    def test_backend_db_log_get(self):
+        with self.app.test_client() as c:
+            response = c.get(f'{self.url_base}/db/log')
+            self.assertEqual(401, response.status_code)
+            response = c.get(f'{self.url_base}/db/log', headers={'Authorization': f'Bearer {self.user_bearer_token}'})
+            self.assertEqual(500, response.status_code)
+            # response_data = json.loads(response.post_data())
+            # self.assertEqual(0, len(response_data['filenames']))
+            # with tempfile.NamedTemporaryFile(dir=self.dir_backend_log, suffix='.log'):
+            #     response = c.post(f'{self.url_base}/log', headers={'Authorization': f'Bearer {self.user_bearer_token}'})
+            #     response_data = json.loads(response.post_data())
+            #     self.assertEqual(1, len(response_data['filenames']))
+
     def test_backend_logfile_get(self):
         with self.app.test_client() as c:
             logfile = tempfile.NamedTemporaryFile(dir=self.dir_backend_log, suffix='.log')
@@ -403,6 +429,16 @@ class AdminAPITest(BaseTest):
                 headers={'Authorization': f'Bearer {self.admin_bearer_token}'}
             )
             self.assertEqual(200, response.status_code)
+
+    def test_clean_documents(self):
+        with self.app.test_client() as c:
+            response = c.patch(f'{self.url_base}/test/clean')
+            self.assertEqual(401, response.status_code)
+            response = c.patch(
+                f'{self.url_base}/test/clean',
+                headers={'Authorization': f'Bearer {self.admin_bearer_token}'}
+            )
+            self.assertEqual(500, response.status_code)
 
 
 class NginxLogConverterTest(BaseTest):
