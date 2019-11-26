@@ -1,5 +1,5 @@
 [run]
-omit=microservice/jsobf.py
+omit=microservice/js,microservice/jsobf.py
 [html]
 directory = coverage-reports
 [xml]
