@@ -4,9 +4,11 @@ author:     Volodymyr Biryuk
 
 This module provides functionality for database access.
 """
+import os
+from flask import Flask
 import logging
 from pymongo import MongoClient
-from pymongo.errors import OperationFailure
+from pymongo.errors import OperationFailure, ServerSelectionTimeoutError
 
 logger = logging.getLogger('flask.app')
 
@@ -43,6 +45,41 @@ class MongoDBConnection():
             logger.debug(e)
         finally:
             return client
+
+
+def init_mongodb_connection(app_object: Flask):
+    """
+    Create a database connection before the first request reaches the designated function.
+    The function initializes the db client regardless of whether the connection was successful.
+    The client is able to reconnect if the database becomes available.
+    :return: None
+    """
+    client = None
+    try:
+        app_object.logger.info(f'Initializing database connection.')
+        host = app_object.config['DB_HOST']
+        port = app_object.config['DB_PORT']
+        try:
+            user = os.environ['DB_USER']
+        except (KeyError, Exception):
+            user = ''
+        try:
+            password = os.environ['DB_PASSWORD']
+        except (KeyError, Exception):
+            password = ''
+        connect_timeout = app_object.config['DB_CONNECTION_TIMEOUT']
+        auth_mechanism = app_object.config['DB_AUTH_MECHANISM']
+        client = MongoDBConnection(
+            host=host,
+            port=port,
+            username=user,
+            password=password,
+            auth_mechanism=auth_mechanism,
+            connect_timeout=connect_timeout
+        ).client
+    except ServerSelectionTimeoutError as e:
+        app_object.logger.error(e)
+    return client
 
 
 if __name__ == "__main__":
