@@ -61,34 +61,11 @@ def init_db_connection(app_object: Flask):
     The client is able to reconnect if the database becomes available.
     :return: None
     """
-    try:
-        app_object.logger.info(f'Initializing database connection.')
-        host = app_object.config['DB_HOST']
-        port = app_object.config['DB_PORT']
-        try:
-            user = os.environ['DB_USER']
-        except (KeyError, Exception):
-            user = ''
-        try:
-            password = os.environ['DB_PASSWORD']
-        except (KeyError, Exception):
-            password = ''
-        connect_timeout = app_object.config['DB_CONNECTION_TIMEOUT']
-        auth_mechanism = app_object.config['DB_AUTH_MECHANISM']
-        global frontend_logs
-        client = data_access.MongoDBConnection(
-            host=host,
-            port=port,
-            username=user,
-            password=password,
-            auth_mechanism=auth_mechanism,
-            connect_timeout=connect_timeout
-        ).client
-        db = client[app_object.config['DB_NAME_FRONTEND_LOGS']]
-        frontend_logs = db[app_object.config['DB_COLLECTION_NAME_FRONTEND_LOGS']]
-        app_object.logger.info(f'Connected to database.')
-    except ServerSelectionTimeoutError as e:
-        app_object.logger.error(f'Could not connect to database.')
+    global frontend_logs
+    client = data_access.init_mongodb_connection(app_object)
+    db = client[app_object.config['DB_NAME_FRONTEND_LOGS']]
+    frontend_logs = db[app_object.config['DB_COLLECTION_NAME_FRONTEND_LOGS']]
+    app_object.logger.info(f'Connected to database.')
     return None
 
 
