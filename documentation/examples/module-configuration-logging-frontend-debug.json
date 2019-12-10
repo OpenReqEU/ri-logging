@@ -1,0 +1,7 @@
+{
+  "enabled": true,
+  "console": {
+    "date": true,
+    "class": true
+  }
+}

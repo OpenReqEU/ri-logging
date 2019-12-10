@@ -1,0 +1,116 @@
+[
+  {
+    "id": "information_default",
+    "target_name": "logging_event",
+    "timestamp_name": "created",
+    "header": [],
+    "fields": [
+      {
+        "name": "user_hash",
+        "source": "variable",
+        "value": "user_hash",
+        "datatype": "string"
+      },
+      {
+        "name": "body_css_class",
+        "source": "query",
+        "value": "body",
+        "get": "attr",
+        "parameter": "class",
+        "datatype": "string"
+      },
+      {
+        "name": "element_content",
+        "source": "event",
+        "value": "currentTarget.innerText",
+        "datatype": "string"
+      },
+      {
+        "name": "content_css_class",
+        "source": "query",
+        "value": "#content",
+        "get": "attr",
+        "parameter": "class",
+        "datatype": "string"
+      }
+    ]
+  },
+  {
+    "id": "formular_save",
+    "target_name": "logging_event",
+    "timestamp_name": "created",
+    "header": [],
+    "fields": [
+      {
+        "name": "user_hash",
+        "source": "variable",
+        "value": "user_hash",
+        "datatype": "string"
+      },
+      {
+        "name": "body_css_class",
+        "source": "query",
+        "value": "body",
+        "get": "attr",
+        "parameter": "class",
+        "datatype": "string"
+      },
+      {
+        "name": "form_css_class",
+        "source": "query",
+        "value": "input[type='button'][name='save']",
+        "element_parent": 4,
+        "get": "attr",
+        "parameter": "class",
+        "datatype": "string"
+      },
+      {
+        "name": "content_css_class",
+        "source": "query",
+        "value": "#content",
+        "get": "attr",
+        "parameter": "class",
+        "datatype": "string"
+      }
+    ]
+  },
+  {
+    "id": "formular_cancel",
+    "target_name": "logging_event",
+    "timestamp_name": "created",
+    "header": [],
+    "fields": [
+      {
+        "name": "user_hash",
+        "source": "variable",
+        "value": "user_hash",
+        "datatype": "string"
+      },
+      {
+        "name": "body_css_class",
+        "source": "query",
+        "value": "body",
+        "get": "attr",
+        "parameter": "class",
+        "datatype": "string"
+      },
+      {
+        "name": "form_css_class",
+        "source": "query",
+        "value": "input[type='button'][name='cancel']",
+        "element_parent": 4,
+        "get": "attr",
+        "parameter": "class",
+        "datatype": "string"
+      },
+      {
+        "name": "content_css_class",
+        "source": "query",
+        "value": "#content",
+        "get": "attr",
+        "parameter": "class",
+        "datatype": "string"
+      }
+    ]
+  }
+]

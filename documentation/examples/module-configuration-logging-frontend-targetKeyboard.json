@@ -1,0 +1,12 @@
+{
+	"bound": false,
+	"name": "form",
+	"type": "keyboard",
+	"category": "keyup",
+	"selector": "input",
+	"information": "information_default",
+	"key_alt": true,
+	"key_shift": true,
+	"key": 13,
+	"receiver": "/openreq/ri_logging"
+}

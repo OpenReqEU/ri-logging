@@ -1,0 +1,9 @@
+{
+  "bound": false,
+  "name": "navigation_main",
+  "type": "mouse",
+  "category": "click",
+  "selector": ".navigation-sections .navigation-element",
+  "information": "information_default",
+  "receiver": ",/openreq/ri_logging"
+}
